@@ -1,0 +1,13 @@
+#summary What SAML 2.0 profiles does simpleSAMLphp support
+#labels saml2,documentation
+
+= SAML 2.0 Profiles supported =
+
+simpleSAMLphp supports:
+  * AuthNRequest using HTTP-REDIRECT and no signatures
+  * Receiving HTTP-POST AuthNResponse with signatures
+  * Supports both SP and IdP initiated HTTP-REDIRECT SLO (LogoutRequest/LogoutResponse)
+
+= PKI =
+
+Currently there is an issue with the openssl library in PHP resulting in problems with using DSA certificates. For now use RSA.
