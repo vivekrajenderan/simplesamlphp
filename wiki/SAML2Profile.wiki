@@ -8,6 +8,17 @@ simpleSAMLphp supports:
   * Receiving HTTP-POST AuthNResponse with signatures
   * Supports both SP and IdP initiated HTTP-REDIRECT SLO (LogoutRequest/LogoutResponse)
 
+|| testing || table ||
+
+{{{
+class TEstcode {
+ function __construct($foo) {
+  $new = foo();
+  return $new;
+ }
+}
+}}}
+
 = PKI =
 
 Currently there is an issue with the openssl library in PHP resulting in problems with using DSA certificates. For now use RSA.
