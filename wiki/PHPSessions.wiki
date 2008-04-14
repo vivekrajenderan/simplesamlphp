@@ -1,4 +1,5 @@
 #summary PHP Session
+#labels Featured
 = Introduction =
 
 Here are some text I found on the PHP forum about PHP Sessions.
