@@ -2,14 +2,22 @@
 
 require_once('../../_include.php');
 
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Utilities.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Session.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Logger.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/XHTML/Template.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Metadata/MetaDataStorageHandler.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/XML/SAML20/AuthnRequest.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Bindings/SAML20/HTTPRedirect.php');
+
 $config = SimpleSAML_Configuration::getInstance();
 $metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
-$session = SimpleSAML_Session::getInstance();
+$session = SimpleSAML_Session::getInstance(TRUE);
 
 
 SimpleSAML_Logger::info('SAML2.0 - SP.initSSO: Accessing SAML 2.0 SP initSSO script');
 
-if (!$config->getBoolean('enable.saml20-sp', TRUE))
+if (!$config->getValue('enable.saml20-sp', false))
 	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOACCESS');
 
 /*
@@ -24,103 +32,28 @@ if (empty($_GET['RelayState'])) {
 	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NORELAYSTATE');
 }
 
-$reachableIDPs = array();
-
 try {
 
-	$idpentityid = isset($_GET['idpentityid']) ? $_GET['idpentityid'] : $config->getString('default-saml20-idp', NULL) ;
+	$idpentityid = isset($_GET['idpentityid']) ? $_GET['idpentityid'] : $config->getValue('default-saml20-idp') ;
 	$spentityid = isset($_GET['spentityid']) ? $_GET['spentityid'] : $metadata->getMetaDataCurrentEntityID();
-
-	$isPassive  = isset($_GET['IsPassive']) && ($_GET['IsPassive'] === 'true' || $_GET['IsPassive'] === '1');
-	$forceAuthn = isset($_GET['ForceAuthn']) && ($_GET['ForceAuthn'] === 'true' || $_GET['ForceAuthn'] === '1');
-
-	/* We are going to need the SP metadata to determine which IdP discovery service we should use.
-	   And for checking for scoping parameters. */
-	$spmetadata = $metadata->getMetaDataCurrent('saml20-sp-hosted');
-
-	$IDPList = array();
-
-	/* Configured idp overrides one given by Scope */
-	if($idpentityid === NULL && array_key_exists('idpentityid', $spmetadata)) {
-		$idpentityid = $spmetadata['idpentityid'];
-	}
-
-	/* AuthId is set if we are on the sp side on a proxy/bridge */
-	$authid = isset($_GET['AuthId']) ? $_GET['AuthId'] : FALSE;
-	if ($authid) {
-		$authrequestcache = $session->getAuthnRequest('saml2', $authid);
-		$isPassive  = $isPassive || $authrequestcache['IsPassive'];
-		$forceAuthn = $forceAuthn || $authrequestcache['ForceAuthn'];
-
-		/* keep the IDPList, it MUST be sent it to the next idp,
-		   we are only allowed to add idps */
-		if (isset($authrequestcache['IDPList']) && is_array($authrequestcache['IDPList'])) {
-			$IDPList = $authrequestcache['IDPList'];
-		}
-		if ($idpentityid === NULL) {
-			/* only consider ProviderIDs we know ... */
-	
-			$reachableIDPs = array_intersect($IDPList, array_keys($metadata->getList()));
-
-			if (sizeof($reachableIDPs) === 1) {
-				$idpentityid = array_shift($reachableIDPs);
-			}
-		}
-	}
-	
 
 } catch (Exception $exception) {
 	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'METADATA', $exception);
 }
 
+
 /*
  * If no IdP can be resolved, send the user to the SAML 2.0 Discovery Service
  */
-if ($idpentityid === NULL) {
+if ($idpentityid == null) {
 
 	SimpleSAML_Logger::info('SAML2.0 - SP.initSSO: No chosen or default IdP, go to SAML2disco');
 
-	/* Which IdP discovery service should we use? Can be set in SP metadata or in global configuration.
-	 * Falling back to builtin discovery service.
-	 */
-
-	if(array_key_exists('idpdisco.url', $spmetadata)) {
-		$discourl = $spmetadata['idpdisco.url'];
-	} elseif($config->getString('idpdisco.url.saml20', NULL) !== NULL) {
-		$discourl = $config->getString('idpdisco.url.saml20');
-	} else {
-		$discourl = SimpleSAML_Utilities::selfURLhost() . '/' . $config->getBaseURL() . 'saml2/sp/idpdisco.php';
-	}
-
-	if ($config->getBoolean('idpdisco.extDiscoveryStorage', NULL) != NULL) {
-		
-		$extDiscoveryStorage = $config->getBoolean('idpdisco.extDiscoveryStorage');
-		
-		SimpleSAML_Utilities::redirect($extDiscoveryStorage, array(
-			'entityID' => $spentityid,
-			'return' => SimpleSAML_Utilities::addURLparameter($discourl, array(
-				'return' => SimpleSAML_Utilities::selfURL(),
-				'remember' => 'true',
-				'entityID' => $spentityid,
-				'returnIDParam' => 'idpentityid',
-			)),
-			'returnIDParam' => 'idpentityid',
-			'isPassive' => 'true')
-		);
-	}
-
-	$discoparameters = array(
+	SimpleSAML_Utilities::redirect('/' . $config->getBaseURL() . 'saml2/sp/idpdisco.php', array(
 		'entityID' => $spentityid,
 		'return' => SimpleSAML_Utilities::selfURL(),
-		'returnIDParam' => 'idpentityid');
-		
-	$discoparameters['isPassive'] = $isPassive;
-	
-	if (sizeof($reachableIDPs) > 0) {
-		$discoparameters['IDPList'] = $reachableIDPs;
-	}
-
-	SimpleSAML_Utilities::redirect($discourl, $discoparameters);
+		'returnIDParam' => 'idpentityid')
+	);
 }
 
 
@@ -129,45 +62,16 @@ if ($idpentityid === NULL) {
  */
 try {
 
-	$spMetadata = $metadata->getMetaDataConfig($spentityid, 'saml20-sp-hosted');
-	$idpMetadata = $metadata->getMetaDataConfig($idpentityid, 'saml20-idp-remote');
+	$sr = new SimpleSAML_XML_SAML20_AuthnRequest($config, $metadata);
 
-	$ar = sspmod_saml2_Message::buildAuthnRequest($spMetadata, $idpMetadata);
+	$md = $metadata->getMetaData($idpentityid, 'saml20-idp-remote');
+	$req = $sr->generate($spentityid, $md['SingleSignOnService']);
 
-	$assertionConsumerServiceURL = $metadata->getGenerated('AssertionConsumerService', 'saml20-sp-hosted');
-	$ar->setAssertionConsumerServiceURL($assertionConsumerServiceURL);
-	$ar->setProtocolBinding(SAML2_Const::BINDING_HTTP_POST);
-	$ar->setRelayState($_REQUEST['RelayState']);
-
-	if ($isPassive) {
-		$ar->setIsPassive(TRUE);
-	}
-	if ($forceAuthn) {
-		$ar->setForceAuthn(TRUE);
-	}
-
-	if(array_key_exists('IDPList', $spmetadata)) {
-		$IDPList = array_unique(array_merge($IDPList, $spmetadata['IDPList']));
-	}
+	$httpredirect = new SimpleSAML_Bindings_SAML20_HTTPRedirect($config, $metadata);
 	
-	if (isset($_GET['IDPList']) && !empty($_GET['IDPList'])) {
-		$providers = $_GET['IDPList'];
-		if (!is_array($providers)) $providers = array($providers);
-		$IDPList = array_merge($IDPList, $providers);
-	};
-	$ar->setIDPList($IDPList);
-
-	/* Save request information. */
-	$info = array();
-	$info['RelayState'] = $_REQUEST['RelayState'];
-	if(array_key_exists('OnError', $_REQUEST)) {
-		$info['OnError'] = $_REQUEST['OnError'];
-	}
-	$session->setData('SAML2:SP:SSO:Info', $ar->getId(), $info);
-
-	$b = new SAML2_HTTPRedirect();
-	$b->setDestination(sspmod_SAML2_Message::getDebugDestination());
-	$b->send($ar);
+	SimpleSAML_Logger::info('SAML2.0 - SP.initSSO: SP (' . $spentityid . ') is sending AuthNRequest to IdP (' . $idpentityid . ')');
+	
+	$httpredirect->sendMessage($req, $spentityid, $idpentityid, $_GET['RelayState']);
 
 } catch(Exception $exception) {
 	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'CREATEREQUEST', $exception);

@@ -3,19 +3,29 @@
 
 require_once('../../www/_include.php');
 
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Utilities.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Session.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Metadata/MetaDataStorageHandler.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/XHTML/Template.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Logger.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Auth/LDAP.php');
+
 $config = SimpleSAML_Configuration::getInstance();
 $metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
-$session = SimpleSAML_Session::getInstance();
+$session = SimpleSAML_Session::getInstance(true);
 
 SimpleSAML_Logger::info('AUTH  - ldap: Accessing auth endpoint login');
 
-$ldapconfig = SimpleSAML_Configuration::getConfig('ldap.php');
+SimpleSAML_Configuration::init($configdir, 'ldapconfig', 'ldap.php');
+$ldapconfig = SimpleSAML_Configuration::getInstance('ldapconfig');
 
 
 $error = null;
 $attributes = array();
 $username = null;
 
+if (empty($session))
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOSESSION');
 
 /* Load the RelayState argument. The RelayState argument contains the address
  * we should redirect the user to after a successful authentication.
@@ -56,46 +66,20 @@ if (isset($_POST['username'])) {
 		 */
 		$ldap = new SimpleSAML_Auth_LDAP($ldapconfig->getValue('auth.ldap.hostname'),
                                          $ldapconfig->getValue('auth.ldap.enable_tls'));
-
-		if($ldapconfig->getValue('auth.ldap.search.enable', FALSE)) {
-			/* We are configured to search for the users dn. */
-
-			$searchUsername = $ldapconfig->getValue('auth.ldap.search.username', NULL);
-
-			if($searchUsername !== NULL) {
-				/* Log in with username & password for searching. */
-
-				$searchPassword = $ldapconfig->getValue('auth.ldap.search.password', NULL);
-				if($searchPassword === NULL) {
-					throw new Exception('"auth.ldap.search.username" is configured, but not' .
-						' "auth.ldap.search.password".');
-				}
-
-				if(!$ldap->bind($searchUsername, $searchPassword)) {
-					throw new Exception('Error authenticating using search username & password.');
-				}
-			}
-
-			$searchBase = $ldapconfig->getValue('auth.ldap.search.base', NULL);
-			$searchAttributes = $ldapconfig->getValue('auth.ldap.search.attributes', NULL);
-			if($searchBase === NULL || $searchAttributes === NULL) {
-				throw new Exception('"auth.ldap.search.base" and "auth.ldap.search.attributes"' .
-					' must be configured before LDAP search can be enabled.');
-			}
-
-			/* Search for the dn. */
-			$dn = $ldap->searchfordn($searchBase, $searchAttributes, $username);
-		} else {
-			/* We aren't configured to search for the dn. Insert the LDAP username into the pattern
-			 * configured in the 'auth.ldap.dnpattern' option.
-			 */
-			$dn = str_replace('%username%', $ldapusername, $ldapconfig->getValue('auth.ldap.dnpattern'));
-		}
+	
+		
+		
+		
+		/** 
+		 * Insert the LDAP username into the pattern configured in the 'auth.ldap.dnpattern' option.
+		 */
+		$dn = str_replace('%username%', $ldapusername, $ldapconfig->getValue('auth.ldap.dnpattern'));
+	
 		
 		/*
-		 * Do LDAP bind using DN.
+		 * Do LDAP bind using DN found from the the dnpattern
 		 */
-		if (($password == "") or (!$ldap->bind($dn, $password))) {
+		if (!$ldap->bind($dn, $password)) {
 			SimpleSAML_Logger::info('AUTH - ldap: '. $username . ' failed to authenticate. DN=' . $dn);
 			throw new Exception('error_wrongpassword');
 		}
@@ -107,7 +91,7 @@ if (isset($_POST['username'])) {
 
 		SimpleSAML_Logger::info('AUTH - ldap: '. $ldapusername . ' successfully authenticated');
 		
-		$session->doLogin('login');
+		$session->setAuthenticated(true, 'login');
 		$session->setAttributes($attributes);
 		
 		$session->setNameID(array(
@@ -138,7 +122,7 @@ if (isset($_POST['username'])) {
 }
 
 
-$t = new SimpleSAML_XHTML_Template($config, 'login.php', 'login');
+$t = new SimpleSAML_XHTML_Template($config, 'login.php', 'login.php');
 
 $t->data['header'] = 'simpleSAMLphp: Enter username and password';
 $t->data['relaystate'] = $relaystate;

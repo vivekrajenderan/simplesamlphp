@@ -3,6 +3,12 @@
 
 require_once('../../www/_include.php');
 
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Utilities.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Session.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Metadata/MetaDataStorageHandler.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/XHTML/Template.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Logger.php');
+
 $config = SimpleSAML_Configuration::getInstance();
 $metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
 $session = SimpleSAML_Session::getInstance();
@@ -21,19 +27,19 @@ if (empty($session))
  */
 if (!array_key_exists('RelayState', $_REQUEST)) {
 	SimpleSAML_Utilities::fatalError(
-		$session->getTrackID(),
-		'NORELAYSTATE'
+		'Invalid access of LDAP login page',
+		'Missing RelayState argument to authentication module.'
 		);
 }
 
 $relaystate = $_REQUEST['RelayState'];
 
-$correctpassword = $config->getString('auth.adminpassword', '123');
+$correctpassword = $config->getValue('auth.adminpassword', '123');
 
 if (empty($correctpassword) or $correctpassword === '123') {
 	SimpleSAML_Utilities::fatalError(
-		$session->getTrackID(),
-		'NOTSET'
+		'Password not set',
+		'The password in the coniguration (auth.adminpassword) is not changed from the default value, please edit the config.'
 	);
 }
 
@@ -49,7 +55,7 @@ if (isset($_POST['password'])) {
 	
 		$attributes = array('user' => array('admin'));
 	
-		$session->doLogin('login-admin');
+		$session->setAuthenticated(true, 'login-admin');
 		$session->setAttributes($attributes);
 
 		$session->setNameID(array(
@@ -72,19 +78,16 @@ if (isset($_POST['password'])) {
 		exit(0);
 	} else {
 		SimpleSAML_Logger::stats('AUTH-login-admin Failed');
-		$error = 'error_wrongpassword';
-		SimpleSAML_Logger::info($error);
+		$error = 'Password incorrect';
 	}
 	
 }
 
 
-$t = new SimpleSAML_XHTML_Template($config, 'login.php', 'login');
+$t = new SimpleSAML_XHTML_Template($config, 'login.php', 'login.php');
 
 $t->data['header'] = 'simpleSAMLphp: Enter username and password';	
 $t->data['relaystate'] = $relaystate;
-$t->data['admin'] = TRUE;
-$t->data['autofocus'] = 'password';
 $t->data['error'] = $error;
 if (isset($error)) {
 	$t->data['username'] = $username;

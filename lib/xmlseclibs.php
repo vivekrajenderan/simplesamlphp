@@ -37,13 +37,28 @@
  * @author     Robert Richards <rrichards@cdatazone.org>
  * @copyright  2007 Robert Richards <rrichards@cdatazone.org>
  * @license    http://www.opensource.org/licenses/bsd-license.php  BSD License
- * @version    1.2.1-dev
+ * @version    1.2.0
  */
 
 /*
 Functions to generate simple cases of Exclusive Canonical XML - Callable function is C14NGeneral()
 i.e.: $canonical = C14NGeneral($domelement, TRUE);
 */
+
+
+
+/**
+ * Older versions of PHP does not have the hash function, so we implement it
+ * if it does not exists
+ */
+if(!function_exists('hash')) {
+	function hash($algo, $data, $raw_output = 0) {
+		if($algo == 'md5') return(md5($data, $raw_output));
+		if($algo == 'sha1') return(sha1($data, $raw_output));
+		throw new Exception('xmlseclibs added hash() method: Hashing algoritm: ' . $algo . ' is not implemented');
+	}
+}
+
 
 /* helper function */
 function sortAndAddAttrs($element, $arAtts) {
@@ -65,12 +80,6 @@ function canonical($tree, $element, $withcomments) {
         $dom = $tree;
     }
     if ($element->nodeType != XML_ELEMENT_NODE) {
-        if ($element->nodeType == XML_DOCUMENT_NODE) {
-            foreach ($element->childNodes AS $node) {
-                canonical($dom, $node, $withcomments);
-            }
-            return;
-        }
         if ($element->nodeType == XML_COMMENT_NODE && ! $withcomments) {
             return;
         }
@@ -156,8 +165,8 @@ function C14NGeneral($element, $exclusive=FALSE, $withcomments=FALSE) {
         return $element->C14N($exclusive, $withcomments);
     }
 
-    /* Must be element or document */
-    if (! $element instanceof DOMElement && ! $element instanceof DOMDocument) {
+    /* Must be element */
+    if (! $element instanceof DOMElement) {
         return NULL;
     }
     /* Currently only exclusive XML is supported */
@@ -191,11 +200,8 @@ class XMLSecurityKey {
     public $encryptedCtx = NULL;
     public $guid = NULL;
 
-    /**
-     * This variable contains the certificate as a string if this key represents an X509-certificate.
-     * If this key doesn't represent a certificate, this will be NULL.
-     */
-    private $x509Certificate = NULL;
+    /* This variable contains the certificate fingerprint if we have loaded an X509-certificate. */
+    private $X509Fingerprint = NULL;
 
     public function __construct($type, $params=NULL) {
         srand();
@@ -252,7 +258,6 @@ class XMLSecurityKey {
             case (XMLSecurityKey::RSA_SHA1):
                 $this->cryptParams['library'] = 'openssl';
                 $this->cryptParams['method'] = 'http://www.w3.org/2000/09/xmldsig#rsa-sha1';
-                $this->cryptParams['padding'] = OPENSSL_PKCS1_PADDING;
                 if (is_array($params) && ! empty($params['type'])) {
                     if ($params['type'] == 'public' || $params['type'] == 'private') {
                         $this->cryptParams['type'] = $params['type'];
@@ -293,6 +298,47 @@ class XMLSecurityKey {
         return $key;
     }
 
+    /* This function calculates the fingerprint of an X509 certificate.
+     *
+     * Parameters:
+     *  $x509cert  The certificate as a base64-encoded string. The string may optionally
+     *             be framed with '-----BEGIN CERTIFICATE-----' and '-----END CERTIFICATE-----'.
+     *
+     * Returns:
+     *  The fingerprint as a 40-character lowercase hexadecimal number.
+     *  NULL is returned if the argument isn't an X509 certificate.
+     */
+    private static function calculateX509Fingerprint($x509cert) {
+        assert('is_string($x509cert)');
+
+        $lines = explode("\n", $x509cert);
+
+        $data = '';
+
+        foreach($lines as $line) {
+            /* Remove '\r' from end of line if present. */
+            $line = rtrim($line);
+            if($line === '-----BEGIN CERTIFICATE-----') {
+                /* Delete junk from before the certificate. */
+                $data = '';
+            } elseif($line === '-----END CERTIFICATE-----') {
+                /* Ignore data after the certificate. */
+                break;
+            } elseif($line === '-----BEGIN PUBLIC KEY-----') {
+                /* This isn't an X509 certificate. */
+                return NULL;
+            } else {
+                /* Append the current line to the certificate data. */
+                $data .= $line;
+            }
+        }
+
+        /* $data now contains the certificate as a base64-encoded string. The fingerprint
+         * of the certificate is the sha1-hash of the certificate.
+         */
+        return strtolower(sha1(base64_decode($data)));
+    }
+
     public function loadKey($key, $isFile=FALSE, $isCert = FALSE) {
         if ($isFile) {
             $this->key = file_get_contents($key);
@@ -302,13 +348,14 @@ class XMLSecurityKey {
         if ($isCert) {
             $this->key = openssl_x509_read($this->key);
             openssl_x509_export($this->key, $str_cert);
-            $this->x509Certificate = $str_cert;
             $this->key = $str_cert;
-        } else {
-            $this->x509Certificate = NULL;
         }
         if ($this->cryptParams['library'] == 'openssl') {
             if ($this->cryptParams['type'] == 'public') {
+                if ($isCert) {
+                    /* Load the fingerprint if this is an X509 certificate. */
+                    $this->X509Fingerprint = self::calculateX509Fingerprint($this->key);
+                }
                 $this->key = openssl_get_publickey($this->key);
             } else {
                 $this->key = openssl_get_privatekey($this->key, $this->passphrase);
@@ -498,21 +545,17 @@ class XMLSecurityKey {
     public function serializeKey($parent) {
 
     }
-    
 
 
-    /**
-     * Retrieve the X509 certificate this key represents.
+    /* Get the fingerprint of this X509 certificate.
      *
-     * Will return the X509 certificate in PEM-format if this key represents
-     * an X509 certificate.
-     *
-     * @return  The X509 certificate or NULL if this key doesn't represent an X509-certificate.
+     * Returns:
+     *  The fingerprint as a lowercase 40-character hexadecimal number, or NULL
+     *  if this isn't a X509 certificate.
      */
-    public function getX509Certificate() {
-        return $this->x509Certificate;
+    public function getX509Fingerprint() {
+        return $this->X509Fingerprint;
     }
-    
 }
 
 class XMLSecurityDSig {
@@ -541,6 +584,7 @@ class XMLSecurityDSig {
     private $canonicalMethod = NULL;
     private $prefix = 'ds';
     private $searchpfx = 'secdsig';
+
 
     /* This variable contains an associative array of validated nodes. */
     private $validatedNodes = NULL;
@@ -691,16 +735,7 @@ class XMLSecurityDSig {
             default:
                 throw new Exception("Cannot validate digest: Unsupported Algorith <$digestAlgorithm>");
         }
-        if (function_exists('hash')) {
-            return base64_encode(hash($alg, $data, TRUE));
-        } elseif (function_exists('mhash')) {
-            $alg = "MHASH_" . strtoupper($alg);
-            return base64_encode(mhash(constant($alg), $data));
-        } elseif ($alg === 'sha1') {
-            return base64_encode(sha1($data, TRUE));
-        } else {
-            throw new Exception('xmlseclibs is unable to calculate a digest. Maybe you need the mhash library?');
-        }
+        return base64_encode(hash($alg, $data, TRUE));
     }
 
     public function validateDigest($refNode, $data) {
@@ -714,7 +749,7 @@ class XMLSecurityDSig {
         return ($digValue == $digestValue);
     }
 
-    public function processTransforms($refNode, $objData, $includeCommentNodes = TRUE) {
+    public function processTransforms($refNode, $objData) {
         $data = $objData;
         $xpath = new DOMXPath($refNode->ownerDocument);
         $xpath->registerNamespace('secdsig', XMLSecurityDSig::XMLDSIGNS);
@@ -728,16 +763,6 @@ class XMLSecurityDSig {
             switch ($algorithm) {
                 case 'http://www.w3.org/2001/10/xml-exc-c14n#':
                 case 'http://www.w3.org/2001/10/xml-exc-c14n#WithComments':
-
-                    if(!$includeCommentNodes) {
-                        /* We remove comment nodes by forcing it to use a canonicalization
-                         * without comments.
-                         */
-                        $canonicalMethod = 'http://www.w3.org/2001/10/xml-exc-c14n#';
-                    } else {
-                        $canonicalMethod = $algorithm;
-                    }
-
                     $node = $transform->firstChild;
                     while ($node) {
                         if ($node->localName == 'InclusiveNamespaces') {
@@ -758,18 +783,9 @@ class XMLSecurityDSig {
                         }
                         $node = $node->nextSibling;
                     }
-		    break;
                 case 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315':
                 case 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments':
-                    if(!$includeCommentNodes) {
-                        /* We remove comment nodes by forcing it to use a canonicalization
-                         * without comments.
-                         */
-                        $canonicalMethod = 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315';
-                    } else {
-                        $canonicalMethod = $algorithm;
-                    }
-
+                    $canonicalMethod = $algorithm;
                     break;
                 case 'http://www.w3.org/TR/1999/REC-xpath-19991116':
                     $node = $transform->firstChild;
@@ -799,23 +815,10 @@ class XMLSecurityDSig {
 
     public function processRefNode($refNode) {
         $dataObject = NULL;
-
-        /*
-         * Depending on the URI, we may not want to include comments in the result
-         * See: http://www.w3.org/TR/xmldsig-core/#sec-ReferenceProcessingModel
-         */
-        $includeCommentNodes = TRUE;
-
         if ($uri = $refNode->getAttribute("URI")) {
             $arUrl = parse_url($uri);
             if (empty($arUrl['path'])) {
                 if ($identifier = $arUrl['fragment']) {
-
-                    /* This reference identifies a node with the given id by using
-                     * a URI on the form "#identifier". This should not include comments.
-                     */
-                    $includeCommentNodes = FALSE;
-
                     $xPath = new DOMXPath($refNode->ownerDocument);
                     if ($this->idNS && is_array($this->idNS)) {
                         foreach ($this->idNS AS $nspf=>$ns) {
@@ -837,21 +840,16 @@ class XMLSecurityDSig {
                 $dataObject = file_get_contents($arUrl);
             }
         } else {
-            /* This reference identifies the root node with an empty URI. This should
-             * not include comments.
-             */
-            $includeCommentNodes = FALSE;
-
             $dataObject = $refNode->ownerDocument;
         }
-        $data = $this->processTransforms($refNode, $dataObject, $includeCommentNodes);
+        $data = $this->processTransforms($refNode, $dataObject);
         if (!$this->validateDigest($refNode, $data)) {
             return FALSE;
         }
 
         if ($dataObject instanceof DOMNode) {
             /* Add this node to the list of validated nodes. */
-            if(! empty($identifier)) {
+            if($identifier) {
                 $this->validatedNodes[$identifier] = $dataObject;
             } else {
                 $this->validatedNodes[] = $dataObject;
@@ -900,14 +898,15 @@ class XMLSecurityDSig {
         if ($nodeset->length == 0) {
             throw new Exception("Reference nodes not found");
         }
-        
+
         /* Initialize/reset the list of validated nodes. */
         $this->validatedNodes = array();
-        
+
         foreach ($nodeset AS $refNode) {
             if (! $this->processRefNode($refNode)) {
                 /* Clear the list of validated nodes. */
                 $this->validatedNodes = NULL;
+
                 throw new Exception("Reference validation failed");
             }
         }
@@ -924,7 +923,7 @@ class XMLSecurityDSig {
             $prefix = empty($options['prefix'])?NULL:$options['prefix'];
             $prefix_ns = empty($options['prefix_ns'])?NULL:$options['prefix_ns'];
             $id_name = empty($options['id_name'])?'Id':$options['id_name'];
-            $overwrite_id = !isset($options['overwrite'])?TRUE:(bool)$options['overwrite'];
+            $overwrite_id = empty($options['overwrite'])?TRUE:(bool)$options['overwrite'];
         }
 
         $attname = $id_name;
@@ -1085,32 +1084,101 @@ class XMLSecurityDSig {
     }
 
 
-    /**
-     * This function inserts the signature element.
-     *
-     * The signature element will be appended to the element, unless $beforeNode is specified. If $beforeNode
-     * is specified, the signature element will be inserted as the last element before $beforeNode.
-     *
-     * @param $node  The node the signature element should be inserted into.
-     * @param $beforeNode  The node the signature element should be located before.
-     */
-    public function insertSignature($node, $beforeNode = NULL) {
-
-        $document = $node->ownerDocument;
-        $signatureElement = $document->importNode($this->sigNode, TRUE);
-
-        if($beforeNode == NULL) {
-            $node->insertBefore($signatureElement);
+	/*
+    public function appendSignature($parentNode, $insertBefore = FALSE) {
+        $baseDoc = ($parentNode instanceof DOMDocument)?$parentNode:$parentNode->ownerDocument;
+        $newSig = $baseDoc->importNode($this->sigNode, TRUE);
+        if ($insertBefore) {
+            $parentNode->insertBefore($newSig, $parentNode->firstChild);
         } else {
-            $node->insertBefore($signatureElement, $beforeNode);
+            $parentNode->appendChild($newSig);
         }
     }
+	*/
+	
 
-    public function appendSignature($parentNode, $insertBefore = FALSE) {
-        $beforeNode = $insertBefore ? $parentNode->firstChild : NULL;
-        $this->insertSignature($parentNode, $beforeNode);
-    }
+	public function appendSignatureShib($parentNode, $insertBefore = FALSE, $assertion = false) {
+		$baseDoc = ($parentNode instanceof DOMDocument)?$parentNode:$parentNode->ownerDocument;
+		$newSig = $baseDoc->importNode($this->sigNode, TRUE);
 
+	
+	
+		$xnode = null;
+		
+		$xpath = new DOMXPath($baseDoc);
+		$xpath->registerNamespace('secdsig', XMLSecurityDSig::XMLDSIGNS);
+		$xpath->registerNamespace('samlp', 'urn:oasis:names:tc:SAML:1.0:protocol');
+		$xpath->registerNamespace('saml', 'urn:oasis:names:tc:SAML:1.0:assertion');
+
+
+		if ($insertBefore && !$assertion) {
+
+			$query = "//samlp:Status";
+			$nodeset = $xpath->query($query, $parentNode);
+
+			$xnode = $nodeset->item(0);
+			if (!$xnode)
+				throw new Exception("Could not find node to sign before (Root signing mode)");
+		
+			$parentNode->insertBefore($newSig, $xnode);
+			
+		} elseif ($insertBefore) {
+			
+			$query = "//saml:Assertion/saml:Subject";
+			$nodeset = $xpath->query($query, $parentNode);
+
+			$xnode = $nodeset->item(0);
+			if (!$xnode)
+				throw new Exception("Could not find node to sign before (Assertion signing mode)");
+
+			$parentNode->insertBefore($newSig, $xnode);
+		} else {
+			$parentNode->appendChild($newSig);
+		}
+	}
+	
+	
+
+	public function appendSignature($parentNode, $insertBefore = false, $assertion = false) {
+		$baseDoc = ($parentNode instanceof DOMDocument)?$parentNode:$parentNode->ownerDocument;
+		$newSig = $baseDoc->importNode($this->sigNode, TRUE);
+
+	
+	
+		$xnode = null;
+		
+		$xpath = new DOMXPath($baseDoc);
+		$xpath->registerNamespace('secdsig', XMLSecurityDSig::XMLDSIGNS);
+		$xpath->registerNamespace('samlp', 'urn:oasis:names:tc:SAML:2.0:protocol');
+		$xpath->registerNamespace('saml', 'urn:oasis:names:tc:SAML:2.0:assertion');
+
+
+		if ($insertBefore && !$assertion) {
+
+			$query = "//samlp:Status";
+			$nodeset = $xpath->query($query, $parentNode);
+
+			$xnode = $nodeset->item(0);
+			if (!$xnode)
+				throw new Exception("Could not find node to sign before (Root signing mode)");
+		
+			$parentNode->insertBefore($newSig, $xnode);
+			
+		} elseif ($insertBefore) {
+			
+			$query = "//saml:Assertion/saml:Subject";
+			$nodeset = $xpath->query($query, $parentNode);
+
+			$xnode = $nodeset->item(0);
+			if (!$xnode)
+				throw new Exception("Could not find node to sign before (Assertion signing mode)");
+
+			$parentNode->insertBefore($newSig, $xnode);
+		} else {
+			$parentNode->appendChild($newSig);
+		}
+	}
+	
     static function get509XCert($cert, $isPEMFormat=TRUE) {
         $certs = XMLSecurityDSig::staticGet509XCerts($cert, $isPEMFormat);
         if (! empty($certs)) {
@@ -1198,7 +1266,7 @@ class XMLSecurityDSig {
             self::staticAdd509Cert($this->sigNode, $cert, $isPEMFormat, $isURL, $xpath);
          }
     }
-    
+
     /* This function retrieves an associative array of the validated nodes.
      *
      * The array will contain the id of the referenced node as the key and the node itself
@@ -1272,7 +1340,7 @@ class XMLSecEnc {
 
         $encMethod = $this->encdoc->documentElement->appendChild($this->encdoc->createElementNS(XMLSecEnc::XMLENCNS, 'xenc:EncryptionMethod'));
         $encMethod->setAttribute('Algorithm', $objKey->getAlgorith());
-        $cipherValue->parentNode->parentNode->insertBefore($encMethod, $cipherValue->parentNode->parentNode->firstChild);
+        $cipherValue->parentNode->parentNode->insertBefore($encMethod, $cipherValue->parentNode);
 
         $strEncrypt = base64_encode($objKey->encryptData($data));
         $value = $this->encdoc->createTextNode($strEncrypt);
@@ -1360,7 +1428,7 @@ class XMLSecEnc {
         $root = $this->encdoc->documentElement;
         $encKey = $this->encdoc->createElementNS(XMLSecEnc::XMLENCNS, 'xenc:EncryptedKey');
         if ($append) {
-            $keyInfo = $root->insertBefore($this->encdoc->createElementNS('http://www.w3.org/2000/09/xmldsig#', 'dsig:KeyInfo'), $root->firstChild);
+            $keyInfo = $root->appendChild($this->encdoc->createElementNS('http://www.w3.org/2000/09/xmldsig#', 'dsig:KeyInfo'));
             $keyInfo->appendChild($encKey);
         } else {
             $this->encKey = $encKey;

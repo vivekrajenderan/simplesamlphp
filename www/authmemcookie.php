@@ -12,13 +12,17 @@
 
 require_once('_include.php');
 
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Utilities.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Session.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/AuthMemCookie.php');
+
 try {
 	/* Load simpleSAMLphp configuration. */
 	$globalConfig = SimpleSAML_Configuration::getInstance();
-	$session = SimpleSAML_Session::getInstance();
+	$session = SimpleSAML_Session::getInstance(TRUE);
 
 	/* Check if this module is enabled. */
-	if(!$globalConfig->getBoolean('enable.authmemcookie', FALSE)) {
+	if(!$globalConfig->getValue('enable.authmemcookie', FALSE)) {
 		SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOACCESS');
 	}
 
@@ -26,33 +30,11 @@ try {
 	$amc = SimpleSAML_AuthMemCookie::getInstance();
 
 	/* Check if the user is authorized. We attempt to authenticate the user if not. */
-	$loginMethod = $amc->getLoginMethod();
-	switch($loginMethod) {
-	case 'authsource':
-		/* The default now. */
-		$sourceId = $amc->getAuthSource();
-		$s = new SimpleSAML_Auth_Simple($sourceId);
-		$s->requireAuth();
-		break;
-	case 'saml2':
-		if (!$session->isValid('saml2') ) {
-			SimpleSAML_Utilities::redirect(
-				'/' . $globalConfig->getBaseURL() . 'saml2/sp/initSSO.php',
-				array('RelayState' => SimpleSAML_Utilities::selfURL())
-				);
-		}
-		break;
-	case 'shib13':
-		if (!$session->isValid('shib13') ) {
-			SimpleSAML_Utilities::redirect(
-				'/' . $globalConfig->getBaseURL() . 'shib13/sp/initSSO.php',
-				array('RelayState' => SimpleSAML_Utilities::selfURL())
-				);
-		}
-		break;
-	default:
-		/* Should never happen, as the login method is checked in the AuthMemCookie class. */
-		throw new Exception('Invalid login method.');
+	if (!$session->isValid('saml2') ) {
+		SimpleSAML_Utilities::redirect(
+			'/' . $globalConfig->getBaseURL() . 'saml2/sp/initSSO.php',
+			array('RelayState' => SimpleSAML_Utilities::selfURL())
+			);
 	}
 
 
@@ -109,14 +91,15 @@ try {
 
 
 	$memcache = $amc->getMemcache();
-	$expirationTime = $session->remainingTime();
-	$memcache->set($sessionID, $data, 0, $expirationTime);
+	$memcache->set($sessionID, $data);
 
 	/* Register logout handler. */
-	$session->registerLogoutHandler('SimpleSAML_AuthMemCookie', 'logoutHandler');
+	$session->registerLogoutHandler('SimpleSAML/AuthMemCookie.php', 'SimpleSAML_AuthMemCookie', 'logoutHandler');
 
 	/* Redirect the user back to this page to signal that the login is completed. */
 	SimpleSAML_Utilities::redirect(SimpleSAML_Utilities::selfURL());
 } catch(Exception $e) {
 	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'CONFIG', $e);
 }
+
+?>

@@ -1,5 +1,9 @@
 <?php
 
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Configuration.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Metadata/MetaDataStorageHandler.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/XML/Shib13/AuthnResponse.php');
+ 
 /**
  * Implementation of the Shibboleth 1.3 HTTP-POST binding.
  *
@@ -16,120 +20,194 @@ class SimpleSAML_Bindings_Shib13_HTTPPost {
 		$this->configuration = $configuration;
 		$this->metadata = $metadatastore;
 	}
+	
+	
+	public function sendResponseUnsigned($response, $idpentityid, $spentityid, $relayState = null, $endpoint = 'AssertionConsumerService') {
 
-	/**
-	 * Send an authenticationResponse using HTTP-POST.
-	 *
-	 * @param string $response  The response which should be sent.
-	 * @param array $idpmd  The metadata of the IdP which is sending the response.
-	 * @param array $spmd  The metadata of the SP which is receiving the response.
-	 * @param string|NULL $relayState  The relaystate for the SP.
-	 * @param string $shire  The shire which should receive the response.
-	 */
-	public function sendResponse($response, $idpmd, $spmd, $relayState, $shire) {
+		$idpmd = $this->metadata->getMetaData($idpentityid, 'saml20-idp-hosted');
+		$spmd = $this->metadata->getMetaData($spentityid, 'saml20-sp-remote');
+		
+		$destination = $spmd[$endpoint];
+		
+		echo '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+				"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+		<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+		<head>
+			<meta http-equiv="content-type" content="text/html; charset=utf-8">
+			<title>Send SAML 2.0 Authentication Response</title>
+		</head>
+		<body>
+		<h1>Send SAML 2.0 Authentication Response</h1>
+		 
+		 <form style="border: 1px solid #777; margin: 2em; padding: 2em" method="post" action="' . $destination . '">
+			<input type="hidden" name="SAMLResponse" value="' . base64_encode($response) . '" />
+			<input type="hidden" name="TARGET" value="' . $relayState. '">
+			<input type="submit" value="Submit the SAML 1.1 Response" />
+		 </form>
+		 
+		<ul>
+			<li>From IdP: <tt>' . $idpentityid . '</tt></li>
+			<li>To SP: <tt>' . $spentityid . '</tt></li>
+			<li>SP Assertion Consumer Service URL: <tt>' . $destination . '</tt></li>
+			<li>RelayState: <tt>' . $relayState . '</tt></li>
+		</ul>
+		
+		<p>SAML Message: <pre>' .  htmlentities($response) . '</pre>
+		
+		
+		</body>
+		</html>';
+	}
+	
+	public function sendResponse($response, $idpentityid, $spentityid, $relayState = null, $claimedacs = null) {
 
-		SimpleSAML_Utilities::validateXMLDocument($response, 'saml11');
+		$idpmd = $this->metadata->getMetaData($idpentityid, 'shib13-idp-hosted');
+		$spmd = $this->metadata->getMetaData($spentityid, 'shib13-sp-remote');
+		
+		$destination = $spmd['AssertionConsumerService'];
+		
+		if (!isset($destination) or $destination == '') 
+			throw new Exception('Could not find AssertionConsumerService for SP entity ID [' . $spentityid. ']. ' . 
+				'Claimed ACS is: ' . (isset($claimedacs) ? $claimedacs : 'N/A'));
+	
+		$privatekey = $this->configuration->getPathValue('certdir') . $idpmd['privatekey'];
+		$publiccert = $this->configuration->getPathValue('certdir') . $idpmd['certificate'];
+		$certchain_pem_file = isset($idpmd['certificatechain']) ? 
+			$this->configuration->getPathValue('certdir') . $idpmd['certificatechain'] : null;
 
-		$privatekey = SimpleSAML_Utilities::loadPrivateKey($idpmd, TRUE);
-		$publickey = SimpleSAML_Utilities::loadPublicKey($idpmd, TRUE);
 
+		if (!file_exists($privatekey)) throw new Exception('Could not find private key file [' . $privatekey . ']');
+		if (!file_exists($publiccert)) throw new Exception('Could not find public cert file [' . $publiccert . ']');
+		
+		$privatek = file_get_contents($privatekey);
+		
+		if (strstr($claimedacs, $destination) == 0) {
+			$destination = $claimedacs;
+		} else {
+			throw new Exception('Claimed ACS (shire) and ACS in SP Metadata do not match. [' . $claimedacs. '] [' . $destination . ']');
+		}
+		
+		
+		/*
+		 * XMLDSig. Sign the complete request with the key stored in cert/server.pem
+		 */
+		$objXMLSecDSig = new XMLSecurityDSig();
+		
+		$objXMLSecDSig->idKeys = array('ResponseID');
+		
+		$objXMLSecDSig->setCanonicalMethod(XMLSecurityDSig::EXC_C14N);
+		
 		$responsedom = new DOMDocument();
 		$responsedom->loadXML(str_replace ("\r", "", $response));
-
+		
 		$responseroot = $responsedom->getElementsByTagName('Response')->item(0);
-		$firstassertionroot = $responsedom->getElementsByTagName('Assertion')->item(0);
-
-		/* Determine what we should sign - either the Response element or the Assertion. The default
-		 * is to sign the Assertion, but that can be overridden by the 'signresponse' option in the
-		 * SP metadata or 'saml20.signresponse' in the global configuration.
+		//$firstassertionroot = $responsedom->getElementsByTagName('Assertion')->item(0);
+		
+		
+		/**
+		 * Add a reference to what element we want to sign.
+		 *
+		 * TODO: Add option to sign assertion versus response	
 		 */
-		$signResponse = FALSE;
-		if (array_key_exists('signresponse', $spmd) && $spmd['signresponse'] !== NULL) {
-			$signResponse = $spmd['signresponse'];
-			if(!is_bool($signResponse)) {
-				throw new Exception('Expected the \'signresponse\' option in the metadata of the' .
-					' SP \'' . $spmd['entityid'] . '\' to be a boolean value.');
-			}
-		} else {
-			$signResponse = $this->configuration->getBoolean('shib13.signresponse', TRUE);
+		$objXMLSecDSig->addReferenceList(array($responseroot), XMLSecurityDSig::SHA1,
+			array('http://www.w3.org/2000/09/xmldsig#enveloped-signature', XMLSecurityDSig::EXC_C14N),
+			array('id_name' => 'ResponseID'));
+
+		/* create new XMLSecKey using RSA-SHA-1 and type is private key */
+		$objKey = new XMLSecurityKey(XMLSecurityKey::RSA_SHA1, array('type'=>'private'));
+		
+		//$objKey->passphrase = '1234';
+		
+		/* load the private key from file - last arg is bool if key in file (TRUE) or is string (FALSE) */
+		#$objKey->loadKey($privatekey_pem,false);
+		$objKey->loadKey($privatek,false);
+		
+		$objXMLSecDSig->sign($objKey);
+		
+		$public_cert = file_get_contents($publiccert);
+				
+		$objXMLSecDSig->add509Cert($public_cert, true);
+		
+		if (isset($certchain_pem_file)) {
+			$certchain_pem = file_get_contents($certchain_pem_file);
+		
+			//echo '<pre>chain:' . $certchain_pem . '</pre>';
+			$certchain = XMLSecurityDSig::staticGet509XCerts($certchain_pem);
+#			foreach ($certchain AS $scert) {
+				$objXMLSecDSig->add509Cert($certchain_pem, true);
+#			}
 		}
-
-		/* Check if we have an assertion to sign. Force to sign the response if not. */
-		if ($firstassertionroot === NULL) {
-			$signResponse = TRUE;
-		}
-
-		$signer = new SimpleSAML_XML_Signer(array(
-			'privatekey_array' => $privatekey,
-			'publickey_array' => $publickey,
-			'id' => ($signResponse ? 'ResponseID' : 'AssertionID') ,
-			));
-
-		if (array_key_exists('certificatechain', $idpmd)) {
-			$signer->addCertificate($idpmd['certificatechain']);
-		}
-
-		if ($signResponse) {
-			/* Sign the response - this must be done after encrypting the assertion. */
-			/* We insert the signature before the saml2p:Status element. */
-			$statusElements = SimpleSAML_Utilities::getDOMChildren($responseroot, 'Status', '@saml1p');
-			assert('count($statusElements) === 1');
-			$signer->sign($responseroot, $responseroot, $statusElements[0]);
-
-		} else {
-			/* Sign the assertion */
-			$signer->sign($firstassertionroot, $firstassertionroot);
-		}
-
+		
+		/*
+		$public_cert = file_get_contents("cert/edugain/public2.pem");
+		$objXMLSecDSig->add509Cert($public_cert, true);
+		
+		$public_cert = file_get_contents("cert/edugain/public3.pem");
+		$objXMLSecDSig->add509Cert($public_cert, true);
+		*/
+		
+		
+		$objXMLSecDSig->appendSignature($responseroot, true);
+		
 		$response = $responsedom->saveXML();
-
-		if ($this->configuration->getBoolean('debug', FALSE)) {
+		
+		
+		# openssl genrsa -des3 -out server.key 1024 
+		# openssl rsa -in server.key -out server.pem
+		# openssl req -new -key server.key -out server.csr
+		# openssl x509 -req -days 60 -in server.csr -signkey server.key -out server.crt
+		
+		if ($this->configuration->getValue('debug')) {
+	
 			$p = new SimpleSAML_XHTML_Template($this->configuration, 'post-debug.php');
+			
 			$p->data['header'] = 'SAML (Shibboleth 1.3) Response Debug-mode';
 			$p->data['RelayStateName'] = 'TARGET';
 			$p->data['RelayState'] = $relayState;
-			$p->data['destination'] = $shire;
+			$p->data['destination'] = $destination;
 			$p->data['response'] = str_replace("\n", "", base64_encode($response));
-			$p->data['responseHTML'] = htmlspecialchars(SimpleSAML_Utilities::formatXMLString($response));
+			$p->data['responseHTML'] = htmlentities($responsedom->saveHTML());
+			
 			$p->show();
 
+		
 		} else {
-			SimpleSAML_Utilities::postRedirect($shire, array(
-				'TARGET' => $relayState,
-				'SAMLResponse' => base64_encode($response),
-			));
+			
+			$p = new SimpleSAML_XHTML_Template($this->configuration, 'post.php');
+		
+			$p->data['RelayStateName'] = 'TARGET';
+			$p->data['RelayState'] = $relayState;
+			$p->data['destination'] = $destination;
+			$p->data['response'] = base64_encode($response);
+			
+			$p->show();
+
+		
 		}
-
+		
+		
 	}
-
-
-	/**
-	 * Decode a received response.
-	 *
-	 * @param array $post  POST data received.
-	 * @return SimpleSAML_XML_Shib13_AuthnResponse  Response.
-	 */
+	
 	public function decodeResponse($post) {
-		assert('is_array($post)');
-
-		if (!array_key_exists('SAMLResponse', $post)) {
-			throw new Exception('Missing required SAMLResponse parameter.');
-		}
-		$rawResponse = $post['SAMLResponse'];
-		$samlResponseXML = base64_decode($rawResponse);
-
-		SimpleSAML_Utilities::validateXMLDocument($samlResponseXML, 'saml11');
-
-		$samlResponse = new SimpleSAML_XML_Shib13_AuthnResponse();
+		$rawResponse = 	$post["SAMLResponse"];
+		$relaystate = 	$post["TARGET"];
+		
+		$samlResponseXML = base64_decode( $rawResponse );
+        
+		$samlResponse = new SimpleSAML_XML_Shib13_AuthnResponse($this->configuration, $this->metadata);
+	
 		$samlResponse->setXML($samlResponseXML);
-
-		if (array_key_exists('TARGET', $post)) {
-			$samlResponse->setRelayState($post['TARGET']);
+		
+		if (isset($relaystate)) {
+			$samlResponse->setRelayState($relaystate);
 		}
-
-		return $samlResponse;
+        
+        return $samlResponse;
+        
 	}
 
+
+	
 }
 
 ?>

@@ -1,10 +1,13 @@
 <?php
 
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Configuration.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Logger.php');
+
 /**
  * A class for logging
  *
  * @author Lasse Birnbaum Jensen, SDU.
- * @author Andreas Ã…kre Solberg, UNINETT AS. <andreas.solberg@uninett.no>
+ * @author Andreas Åkre Solberg, UNINETT AS. <andreas.solberg@uninett.no>
  * @package simpleSAMLphp
  * @version $ID$
  */
@@ -16,9 +19,7 @@ class SimpleSAML_Logger_LoggingHandlerSyslog implements SimpleSAML_Logger_Loggin
     function __construct() {
         $config = SimpleSAML_Configuration::getInstance();
         assert($config instanceof SimpleSAML_Configuration);
-        $facility = $config->getInteger('logging.facility', defined('LOG_LOCAL5') ? constant('LOG_LOCAL5') : LOG_USER);
-
-        $processname = $config->getString('logging.processname','simpleSAMLphp');
+        $facility = $config->getValue('logging.facility');
         /*
          * OS Check 
          * Setting facility to LOG_USER (only valid in Windows), enable log level rewrite on windows systems.
@@ -28,7 +29,7 @@ class SimpleSAML_Logger_LoggingHandlerSyslog implements SimpleSAML_Logger_Loggin
         	$facility = LOG_USER;
         }
         	
-        openlog($processname, LOG_PID, $facility);
+        openlog("simpleSAMLphp", LOG_PID, $facility);
     }
 
     function log_internal($level,$string) {

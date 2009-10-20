@@ -1,5 +1,8 @@
 <?php
 
+/* We need access to the configuration from config/config.php. */
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Configuration.php');
+
 /**
  * This file is part of SimpleSAMLphp. See the file COPYING in the
  * root of the distribution for licence information.
@@ -45,7 +48,7 @@ extends SimpleSAML_SessionHandler {
 		/* We don't have a valid session. Create a new session id. */
 		$this->session_id = self::createSessionID();
 		setcookie('SimpleSAMLSessionID', $this->session_id, 0, '/',
-			NULL, self::secureCookie());
+			NULL, self::secureCookie(), TRUE);
 	}
 
 
@@ -88,7 +91,13 @@ extends SimpleSAML_SessionHandler {
 	 *  A random session id.
 	 */
 	private static function createSessionID() {
-		return SimpleSAML_Utilities::stringToHex(SimpleSAML_Utilities::generateRandomBytes(16));
+		$id = '';
+		for($i = 0; $i < 32; $i++) {
+			/* TODO: Is rand(...) secure enough? */
+			$id .= dechex(rand(0, 15));
+		}
+
+		return $id;
 	}
 
 

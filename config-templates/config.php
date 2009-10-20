@@ -8,36 +8,39 @@
 $config = array (
 
 	/**
+	 * This option configures the base directory for this simpleSAMLphp
+	 * installation. Under most circumstances this option is optional,
+	 * and can be left unset.
+	 *
+	 * Example:
+	 *  'basedir' => '/var/simplesamlphp/',
+	 */
+	'basedir' => NULL,
+
+	/**
 	 * Setup the following parameters to match the directory of your installation.
 	 * See the user manual for more details.
 	 */
 	'baseurlpath'           => 'simplesaml/',
+	'templatedir'           => 'templates/',
+	'metadatadir'           => 'metadata/',
+	'attributenamemapdir'   => 'attributemap/',
 	'certdir'               => 'cert/',
+	'dictionarydir'         => 'dictionaries/',
 	'loggingdir'            => 'log/',
-	'datadir'               => 'data/',
-
-	/*
-	 * A directory where simpleSAMLphp can save temporary files.
-	 *
-	 * SimpleSAMLphp will attempt to create this directory if it doesn't exist.
-	 */
-	'tempdir'               => '/tmp/simplesaml',
 	
-
+	
+	'version'				=>	'1.0',
+	
 	/**
 	 * If you set the debug parameter to true, all SAML messages will be visible in the
 	 * browser, and require the user to click the submit button. If debug is set to false,
 	 * Browser/POST SAML messages will be automaticly submitted.
 	 */
-	'debug'                 =>	FALSE,
-	'showerrors'            =>	TRUE,
-
-	/**
-	 * This option allows you to enable validation of XML data against its
-	 * schemas. A warning will be written to the log if validation fails.
-	 */
-	'debug.validatexml' => FALSE,
-
+	'debug'                 =>	false,
+	'showerrors'            =>	true,
+	'errorreportaddress'    =>  'http://rnd.feide.no/content/sending-information-simplesamlphp',
+	
 	/**
 	 * This password must be kept secret, and modified from the default value 123.
 	 * This password will give access to the installation page of simpleSAMLphp with
@@ -46,34 +49,13 @@ $config = array (
 	'auth.adminpassword'		=> '123',
 	'admin.protectindexpage'	=> false,
 	'admin.protectmetadata'		=> false,
-
-	/**
-	 * This is a secret salt used by simpleSAMLphp when it needs to generate a secure hash
-	 * of a value. It must be changed from its default value to a secret value. The value of
-	 * 'secretsalt' can be any valid string of any length.
-	 *
-	 * A possible way to generate a random salt is by running the following command from a unix shell:
-	 * tr -c -d '0123456789abcdefghijklmnopqrstuvwxyz' </dev/urandom | dd bs=32 count=1 2>/dev/null;echo
-	 */
-	'secretsalt' => 'defaultsecretsalt',
 	
 	/*
 	 * Some information about the technical persons running this installation.
-	 * The email address will be used as the recipient address for error reports, and
-	 * also as the technical contact in generated metadata.
 	 */
 	'technicalcontact_name'     => 'Administrator',
 	'technicalcontact_email'    => 'na@example.org',
-
-	/*
-	 * The timezone of the server. This option should be set to the timezone you want
-	 * simpleSAMLphp to report the time in. The default is to guess the timezone based
-	 * on your system timezone.
-	 *
-	 * See this page for a list of valid timezones: http://php.net/manual/en/timezones.php
-	 */
-	'timezone' => NULL,
-
+	
 	/*
 	 * Logging.
 	 * 
@@ -86,34 +68,21 @@ $config = array (
 	 * 
 	 * Choose logging handler.
 	 * 
-	 * Options: [syslog,file,errorlog]
+	 * Options: [syslog,file]
 	 * 
 	 */
 	'logging.level'         => LOG_NOTICE,
 	'logging.handler'       => 'syslog',
-
-	/*
-	 * Choose which facility should be used when logging with syslog.
-	 *
-	 * These can be used for filtering the syslog output from simpleSAMLphp into its
-	 * own file by configuring the syslog daemon.
-	 *
-	 * See the documentation for openlog (http://php.net/manual/en/function.openlog.php) for available
-	 * facilities. Note that only LOG_USER is valid on windows.
-	 *
-	 * The default is to use LOG_LOCAL5 if available, and fall back to LOG_USER if not.
+	
+	/* Logging: syslog - Choose a syslog facility to use for logging.
 	 */
-	'logging.facility' => defined('LOG_LOCAL5') ? constant('LOG_LOCAL5') : LOG_USER,
-
-	/*
-	 * The process name that should be used when logging to syslog.
-	 * The value is also written out by the other logging handlers.
-	 */
-	'logging.processname' => 'simplesamlphp',
-
+	'logging.facility'      => LOG_LOCAL5,
+	
 	/* Logging: file - Logfilename in the loggingdir from above.
 	 */
 	'logging.logfile'		=> 'simplesamlphp.log',
+	
+	'statistics.realmattr'  => 'realm',
 	
 	
 
@@ -124,9 +93,11 @@ $config = array (
 	 * one of the functionalities below, but in some cases you could run multiple functionalities.
 	 * In example when you are setting up a federation bridge.
 	 */
+	'enable.saml20-sp'		=> true,
 	'enable.saml20-idp'		=> false,
+	'enable.shib13-sp'		=> false,
 	'enable.shib13-idp'		=> false,
-	'enable.wsfed-sp'		=> false,
+	'enable.openid-provider'=> false,
 	'enable.authmemcookie' => false,
 
 	/* 
@@ -135,49 +106,36 @@ $config = array (
 	 */
 	'session.duration'		=>  8 * (60*60), // 8 hours.
 	'session.requestcache'	=>  4 * (60*60), // 4 hours
-
-	/*
-	 * Sets the duration, in seconds, data should be stored in the datastore. As the datastore is used for
-	 * login and logout requests, thid option will control the maximum time these operations can take.
-	 * The default is 4 hours (4*60*60) seconds, which should be more than enough for these operations.
-	 */
-	'session.datastore.timeout' => (4*60*60), // 4 hours
 	
-	/*
-	 * Options to override the default settings for php sessions.
-	 */
 	'session.phpsession.cookiename'  => null,
 	'session.phpsession.limitedpath' => false,
-	'session.phpsession.savepath'    => null,
 	
 	/*
 	 * Languages available and what language is default
 	 */
-	'language.available'	=> array('en', 'no', 'nn', 'se', 'fi', 'da', 'sv', 'de', 'es', 'fr', 'nl', 'lb', 'hr', 'hu', 'pl', 'sl', 'pt', 'pt-BR', 'tr'),
+	'language.available'	=> array('en', 'no', 'nn', 'dk', 'es', 'de', 'fr', 'nl', 'lu'),
 	'language.default'		=> 'en',
 	
 	/*
-	 * Which theme directory should be used?
+	 * Which theme directory should be used? The base is fallback (leave it to default).
 	 */
 	'theme.use' 		=> 'default',
+	'theme.base' 		=> 'default',
 
 	
 	/*
-	 * Default IdP for WS-Fed.
+	 * Default IdPs. If you do not enter an idpentityid in the SSO initialization endpoints,
+	 * the default IdP configured here will be used.
+	 *
+	 * To enable the SAML 2.0 IdP Discovery service for a SAML 2.0 SP, you need to set the
+	 * default-saml20-idp to be null, like this:
+	 *
+	 * 		'default-saml20-idp'	=> null,
+	 *
 	 */
-	'default-wsfed-idp'	=> 'urn:federation:pingfederate:localhost',
-
-	/*
-	 * Whether the discovery service should allow the user to save his choice of IdP.
-	 */
-	'idpdisco.enableremember' => TRUE,
-	'idpdisco.rememberchecked' => TRUE,
+	'default-saml20-idp'	=> 'max.feide.no',
+	'default-shib13-idp'	=> 'urn:mace:switch.ch:aaitest:dukono.switch.ch',
 	
-	// Disco service only accepts entities it knows.
-	'idpdisco.validate' => TRUE,
-	
-	'idpdisco.extDiscoveryStorage' => NULL, 
-
 	/*
 	 * IdP Discovery service look configuration. 
 	 * Wether to display a list of idp or to display a dropdown box. For many IdP' a dropdown box  
@@ -189,103 +147,18 @@ $config = array (
 	 * Options: [links,dropdown]
 	 * 
 	 */
-	'idpdisco.layout' => 'dropdown',
+	'idpdisco.layout' => 'links',
 
 	/*
-	 * Whether simpleSAMLphp should sign the response or the assertion in SAML 1.1 authentication
-	 * responses.
-	 *
-	 * The default is to sign the assertion element, but that can be overridden by setting this
-	 * option to TRUE. It can also be overridden on a pr. SP basis by adding an option with the
-	 * same name to the metadata of the SP.
+	 * Configuration of Consent storage used for attribute consent.
+	 * connect, user and passwd is used with PDO (in example Mysql)
 	 */
-	'shib13.signresponse' => TRUE,
-	
-	
-	
-	/*
-	 * Authentication processing filters that will be executed for all IdPs
-	 * Both Shibboleth and SAML 2.0
-	 */
-	'authproc.idp' => array(
-		/* Enable the authproc filter below to add URN Prefixces to all attributes
- 		10 => array(
- 			'class' => 'core:AttributeMap', 'addurnprefix'
- 		), */
- 		/* Enable the authproc filter below to automatically generated eduPersonTargetedID. 
- 		20 => 'core:TargetedID',
- 		*/
-
-		// Adopts language from attribute to use in UI
- 		30 => 'core:LanguageAdaptor',
- 		
-		/* Add a realm attribute from edupersonprincipalname
-		40 => 'core:AttributeRealm',
-		 */
-		45 => array(
-			'class' => 'core:StatisticsWithAttribute',
-			'attributename' => 'realm',
-			'type' => 'saml20-idp-SSO',
-		),
-
-		/* When called without parameters, it will fallback to filter attributes ‹the old way›
-		 * by checking the 'attributes' parameter in metadata on IdP hosted and SP remote.
-		 */
-		50 => 'core:AttributeLimit', 
-
-		/* 
-		 * Search attribute "distinguishedName" for pattern and replaces if found
-
-		60 => array(
-			'class'		=> 'core:AttributeAlter',
-			'pattern'	=> '/OU=studerende/',
-			'replacement'	=> 'Student',
-			'subject'	=> 'distinguishedName',
-			'%replace',	
-		),
-		 */
-
-		/*
-		 * Consent module is enabled (with no permanent storage, using cookies).
-
-		90 => array(
-			'class' 	=> 'consent:Consent', 
-			'store' 	=> 'consent:Cookie', 
-			'focus' 	=> 'yes', 
-			'checked' 	=> TRUE
-		),
-		 */
-		// If language is set in Consent module it will be added as an attribute.
- 		99 => 'core:LanguageAdaptor',
-	),
-	/*
-	 * Authentication processing filters that will be executed for all IdPs
-	 * Both Shibboleth and SAML 2.0
-	 */
-	'authproc.sp' => array(
-		/*
-		10 => array(
-			'class' => 'core:AttributeMap', 'removeurnprefix'
-		),
-		*/
-
-		/* When called without parameters, it will fallback to filter attributes ‹the old way›
-		 * by checking the 'attributes' parameter in metadata on SP hosted and IdP remote.
-		 */
-		50 => 'core:AttributeLimit', 
-
-		/*
-		 * Generate the 'group' attribute populated from other variables, including eduPersonAffiliation.
-		 */
- 		60 => array('class' => 'core:GenerateGroups', 'eduPersonAffiliation'),
- 		// All users will be members of 'users' and 'members' 	
- 		61 => array('class' => 'core:AttributeAdd', 'groups' => array('users', 'members')),
- 		
-		// Adopts language from attribute to use in UI
- 		90 => 'core:LanguageAdaptor',
-
-	),
-	
+	'consent_usestorage' => FALSE,
+	'consent_userid' => 'eduPersonPrincipalName',
+	'consent_salt' => 'sdkfjhsidu87werwe8r79w8e7r',
+	'consent_pdo_connect' => 'mysql:host=sql.example.org;dbname=simplesamlconsent',
+	'consent_pdo_user' => 'simplesamluser',
+	'consent_pdo_passwd' => 'xxxx',
 
 	/*
 	 * This option configures the metadata sources. The metadata sources is given as an array with
@@ -336,8 +209,33 @@ $config = array (
 	 */
 	'metadata.sources' => array(
 		array('type' => 'flatfile'),
-	),
+		),
 
+
+
+	
+	/*
+	 * Radius authentication. This is only relevant if you use the Radius authentication plugin.
+	 * user attributes are expected to be stored in a Vendor-Specific RADIUS string attribute and have
+	 * the form aai-attribute=value
+	 * vendor and vendor-attr below indicate in which RADIUS attribute the AAI attributes are in.
+	 * multiple occurences of that RADIUS attribute are supported
+	 */
+	'auth.radius.hostname'        => 'radius.example.org',
+	'auth.radius.port'            => '1812',
+	'auth.radius.secret'          => 'topsecret',
+	'auth.radius.URNForUsername'  => 'urn:mace:dir:attribute-def:eduPersonPrincipalName',
+	'auth.radius.vendor'          => '23735',
+	'auth.radius.vendor-attr'     => '4',
+
+	
+	/*
+	 * These parameters are only relevant if you setup an OpenID Provider.
+	 */
+	'openid.userid_attributename' => 'eduPersonPrincipalName',
+	'openid.delegation_prefix'    => 'https://openid.feide.no/',
+	'openid.filestore'            => '/tmp/openidstore',
+	
 
 	/*
 	 * This configuration option allows you to select which session handler
@@ -428,33 +326,62 @@ $config = array (
 	'memcache_store.expires' =>  36 * (60*60), // 36 hours.
 
 
-	/*
-	 * Should signing of generated metadata be enabled by default.
-	 *
-	 * Metadata signing can also be enabled for a individual SP or IdP by setting the
-	 * same option in the metadata for the SP or IdP.
-	 */
-	'metadata.sign.enable' => FALSE,
 
 	/*
-	 * The default key & certificate which should be used to sign generated metadata. These
-	 * are files stored in the cert dir.
-	 * These values can be overridden by the options with the same names in the SP or
-	 * IdP metadata.
+	 * This option enables or disables the login-auto authentication
+	 * handler. This handler is implemented in 'www/auth/login-auto.php'.
 	 *
-	 * If these aren't specified here or in the metadata for the SP or IdP, then
-	 * the 'certificate' and 'privatekey' option in the metadata will be used.
-	 * if those aren't set, signing of metadata will fail.
+	 * When this option is set to true, a user can go to the
+	 * 'auth/login-auto.php' web page to be authenticated as an example
+	 * user. The user will receive the attributes set in the
+	 * 'auth.auto.attributes' option.
+	 *
+	 * WARNING: setting this option to true will make it possible to use
+	 * this authenticator for all users, irrespectively of the 'auth'
+	 * setting in the IdP's metadata. They can always use it by opening the
+	 * 'auth/login-auto.php' webpage manually.
 	 */
-	'metadata.sign.privatekey' => NULL,
-	'metadata.sign.privatekey_pass' => NULL,
-	'metadata.sign.certificate' => NULL,
+	'auth.auto.enable' => false,
 
 	/*
-	 * This is the default URL to a MetaShare service where a SAML 2.0 IdP can register its metadata.
-	 * This is a highly experimentar feature.
+	 * This option configures which attributes the login-auto
+	 * authentication handler will set for the user. It is an array of
+	 * arrays. The name of the attribute is the index in the first array,
+	 * and all the values for the attribute is given in the array
+	 * referenced to by the name.
+	 *
+	 * Example:
+	 * 'auth.auto.attributes' => array(
+	 *     'edupersonaffiliation' => array('student', 'member'),
+	 *     'uid' => array('example_uid'),
+	 *     'mail' => array('example@example.com'),
+	 * ),
 	 */
-	'metashare.publishurl' => NULL,
+	'auth.auto.attributes' => array(
+		'edupersonaffiliation' => array('student', 'member'),
+		'title' => array('Example user title'),
+		'uid' => array('example_uid'),
+		'mail' => array('example@example.com'),
+		'cn' => array('Example user commonname'),
+		'givenname' => array('Example user givenname'),
+		'sn' => array("Example surname"),
+	),
+
+	/*
+	 * When this option is set to true, the login-auto authentication
+	 * handler will ask for a username and a password. This can be used to
+	 * test the IdP. The username and password isn't verified, and the
+	 * user/script can enter anything.
+	 */
+	'auth.auto.ask_login' => false,
+
+	/*
+	 * This option configures a delay in the login-auto authentication
+	 * handler. The script will wait for the given number of milliseconds
+	 * before authenticating the user. This can, for example, be used in
+	 * a simple simulation of a slow LDAP server.
+	 */
+	'auth.auto.delay_login' => 0,
 
 );
 

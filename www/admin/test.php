@@ -3,9 +3,6 @@
 /**
  * This file defines a webpage that can be used to test interaction between this SP and a selected IdP.
  *
- * Note: This page is deprecated in favor of the autotest module. It will be
- * removed in a future version of simpleSAMLphp.
- *
  * It has several query parameters:
  * - 'op': The operation.
  *   - 'login' Initialize login.
@@ -32,6 +29,9 @@
  */
 
 require_once('../_include.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Configuration.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Session.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Utilities.php');
 
 $config = SimpleSAML_Configuration::getInstance();
 
@@ -83,7 +83,7 @@ foreach ($_GET as $k => $v) {
 
 
 if ($op === 'login') {
-	$session = SimpleSAML_Session::getInstance();
+	$session = SimpleSAML_Session::getInstance(TRUE);
 
 	/* Initialize SSO if we aren't authenticated. */
 	if (!$session->isValid($protocol) ) {
@@ -122,7 +122,11 @@ if ($op === 'login') {
 	}
 
 } elseif ($op === 'logout') {
-	$session = SimpleSAML_Session::getInstance();
+	$session = SimpleSAML_Session::getInstance(FALSE);
+
+	if ($session === NULL) {
+		error('No session.');
+	}
 
 	if (!$session->isValid('saml2')) {
 		error('Not logged in.');
@@ -143,8 +147,8 @@ if ($op === 'login') {
 		);
 
 } elseif ($op === 'testnosession') {
-	$session = SimpleSAML_Session::getInstance();
-	if ($session->isValid('saml2')) {
+	$session = SimpleSAML_Session::getInstance(FALSE);
+	if ($session !== NULL && $session->isValid('saml2')) {
 		error('Still logged in.');
 	}
 

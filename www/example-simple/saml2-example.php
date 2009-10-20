@@ -1,25 +1,23 @@
 <?php
 
 /**
- * The _include script registers a autoloader for the simpleSAMLphp libraries. It also
- * initializes the simpleSAMLphp config class with the correct path.
+ * The _include script sets simpleSAMLphp libraries in the PHP PATH, as well as 
+ * initialize the simpleSAMLphp config class with the correct path.
  */
 require_once('../_include.php');
 
-/*
- * Explisit instruct consent page to send no-cache header to browsers 
- * to make sure user attribute information is not store on client disk.
- * 
- * In an vanilla apache-php installation is the php variables set to:
- * session.cache_limiter = nocache
- * so this is just to make sure.
+/**
+ * We need to load a few classes from simpleSAMLphp. These are available because
+ * the _include script above did set the PHP class PATH properly.
  */
-session_cache_limiter('nocache');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Utilities.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Session.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/XHTML/Template.php');
 
 
 /* Load simpleSAMLphp, configuration and metadata */
 $config = SimpleSAML_Configuration::getInstance();
-$session = SimpleSAML_Session::getInstance();
+$session = SimpleSAML_Session::getInstance(TRUE);
 
 /**
  * Check if valid local session exists, and the authority is the SAML 2.0 SP
@@ -47,14 +45,7 @@ if (!$session->isValid('saml2') ) {
 	);
 }
 
-/* Prepare attributes for presentation 
-* and call a hook function for organizing the attribute array
-*/
 $attributes = $session->getAttributes();
-$para = array(
-	'attributes' => &$attributes
-);
-SimpleSAML_Module::callHooks('attributepresentation', $para);
 
 /*
  * The attributes variable now contains all the attributes. So this variable is basicly all you need to perform integration in 
@@ -66,15 +57,15 @@ SimpleSAML_Module::callHooks('attributepresentation', $para);
  *
  */
 
-$t = new SimpleSAML_XHTML_Template($config, 'status.php', 'attributes');
+$t = new SimpleSAML_XHTML_Template($config, 'status.php', 'attributes.php');
 
-$t->data['header'] = '{status:header_saml20_sp}';
+$t->data['header'] = 'SAML 2.0 SP Demo Example';
 $t->data['remaining'] = $session->remainingTime();
 $t->data['sessionsize'] = $session->getSize();
 $t->data['attributes'] = $attributes;
 $t->data['icon'] = 'bino.png';
-$t->data['logouturl'] = '/' . $config->getBaseURL() . 'saml2/sp/initSLO.php?RelayState=/' .
-	$config->getBaseURL() . 'logout.php';
+$t->data['logout'] = '[ <a href="/' . $config->getBaseURL() . 'saml2/sp/initSLO.php?RelayState=/' . 
+	$config->getBaseURL() . 'logout.html">Logout</a> ]';
 $t->show();
 
 

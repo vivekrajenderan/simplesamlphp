@@ -19,15 +19,17 @@
 
 require_once('../../www/_include.php');
 
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Configuration.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Session.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Utilities.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/XHTML/Template.php');
+
 /* Load the configuration. */
 $config = SimpleSAML_Configuration::getInstance();
-$autoconfig = SimpleSAML_Configuration::getConfig('config-login-auto.php');
-
-
-$enable = (bool)$autoconfig->getValue('auth.auto.enable');
-$attributes = $autoconfig->getValue('auth.auto.attributes');
-$ask_login = (bool)$autoconfig->getValue('auth.auto.ask_login');
-$delay_login = (int)$autoconfig->getValue('auth.auto.delay_login');
+$enable = (bool)$config->getValue('auth.auto.enable');
+$attributes = $config->getValue('auth.auto.attributes');
+$ask_login = (bool)$config->getValue('auth.auto.ask_login');
+$delay_login = (int)$config->getValue('auth.auto.delay_login');
 
 /* Verify that this authentication handler is enabled. */
 if(!$enable) {
@@ -44,7 +46,7 @@ if(!is_array($attributes)) {
 if($ask_login && !array_key_exists('username', $_POST)) {
 	/* Show login page. */
 
-	$t = new SimpleSAML_XHTML_Template($config, 'login.php', 'login');
+	$t = new SimpleSAML_XHTML_Template($config, 'login.php', 'login.php');
 
 	$t->data['header'] = 'simpleSAMLphp: Enter username and password';
 	$t->data['relaystate'] = $_REQUEST['RelayState'];
@@ -61,7 +63,7 @@ usleep($delay_login * 1000);
 
 
 /* Load the session of the current user. */
-$session = SimpleSAML_Session::getInstance();
+$session = SimpleSAML_Session::getInstance(true);
 if($session == NULL) {
 	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOSESSION');
 }
@@ -69,7 +71,7 @@ if($session == NULL) {
 /* Set the user as authenticated and add the attributes from the
  * configuration.
  */
-$session->doLogin('login-auto');
+$session->setAuthenticated(true, 'login-auto');
 
 $session->setAttributes($attributes);
 $session->setNameID(array(

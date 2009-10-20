@@ -2,17 +2,28 @@
 
 require_once('../../_include.php');
 
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Utilities.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Session.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Metadata/MetaDataStorageHandler.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/XHTML/Template.php');
+
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'xmlseclibs.php');
+
 /* Load simpleSAMLphp, configuration and metadata */
 $config = SimpleSAML_Configuration::getInstance();
 $metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
-$session = SimpleSAML_Session::getInstance();
+$session = SimpleSAML_Session::getInstance(true);
 
-if (!$config->getBoolean('enable.shib13-idp', false))
+if (!$config->getValue('enable.shib13-idp', false))
 	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOACCESS');
 
 /* Check if valid local session exists.. */
-if ($config->getBoolean('admin.protectmetadata', false)) {
-	SimpleSAML_Utilities::requireAdmin();
+if ($config->getValue('admin.protectmetadata', false)) {
+	if (!isset($session) || !$session->isValid('login-admin') ) {
+		SimpleSAML_Utilities::redirect('/' . $config->getBaseURL() . 'auth/login-admin.php',
+			array('RelayState' => SimpleSAML_Utilities::selfURL())
+		);
+	}
 }
 
 
@@ -21,66 +32,53 @@ try {
 	$idpmeta = isset($_GET['idpentityid']) ? $_GET['idpentityid'] : $metadata->getMetaDataCurrent('shib13-idp-hosted');
 	$idpentityid = isset($_GET['idpentityid']) ? $_GET['idpentityid'] : $metadata->getMetaDataCurrentEntityID('shib13-idp-hosted');
 	
-	$certInfo = SimpleSAML_Utilities::loadPublicKey($idpmeta, TRUE);
-	$certFingerprint = $certInfo['certFingerprint'];
-	if (count($certFingerprint) === 1) {
-		/* Only one valid certificate. */
-		$certFingerprint = $certFingerprint[0];
-	}
+	$publiccert = $config->getPathValue('certdir') . $idpmeta['certificate'];
 
-	$metaArray = array(
-		'SingleSignOnService' => $metadata->getGenerated('SingleSignOnService', 'shib13-idp-hosted'),
-		'certFingerprint' => $certFingerprint,
-	);
-
-	if (array_key_exists('NameIDFormat', $idpmeta)) {
-		$metaArray['NameIDFormat'] = $idpmeta['NameIDFormat'];
-	} else {
-		$metaArray['NameIDFormat'] = 'urn:mace:shibboleth:1.0:nameIdentifier';
-	}
-	if (array_key_exists('name', $idpmeta)) {
-		$metaArray['name'] = $idpmeta['name'];
-	}
-	if (array_key_exists('description', $idpmeta)) {
-		$metaArray['description'] = $idpmeta['description'];
-	}
-	if (array_key_exists('url', $idpmeta)) {
-		$metaArray['url'] = $idpmeta['url'];
-	}
-
-
-	$metaflat = var_export($idpentityid, TRUE) . ' => ' . var_export($metaArray, TRUE) . ',';
+	if (!file_exists($publiccert)) 
+		throw new Exception('Could not find certificate [' . $publiccert . '] to attach to the authentication resposne');
 	
-	$metaArray['certData'] = $certInfo['certData'];
-	$metaBuilder = new SimpleSAML_Metadata_SAMLBuilder($idpentityid);
-	$metaBuilder->addMetadataIdP11($metaArray);
-	$metaBuilder->addContact('technical', array(
-		'emailAddress' => $config->getString('technicalcontact_email', NULL),
-		'name' => $config->getString('technicalcontact_name', NULL),
-		));
-	$metaxml = $metaBuilder->getEntityDescriptorText();
-
-	/* Sign the metadata if enabled. */
-	$metaxml = SimpleSAML_Metadata_Signer::sign($metaxml, $idpmeta, 'Shib 1.3 IdP');
+	$cert = file_get_contents($publiccert);
+	$data = XMLSecurityDSig::get509XCert($cert, true);
 	
 	
-	if (array_key_exists('output', $_GET) && $_GET['output'] == 'xhtml') {
-		$defaultidp = $config->getString('default-shib13-idp', NULL);
+	$metaflat = "
+	'" . htmlspecialchars($idpentityid) . "' =>  array(
+		'name'                 => 'Type in a name for this entity',
+		'description'          => 'and a proper description that would help users know when to select this IdP.',
+		'SingleSignOnService'  => '" . htmlspecialchars($metadata->getGenerated('SingleSignOnService', 'shib13-idp-hosted')) . "',
+		'certFingerprint'      => '" . strtolower(sha1(base64_decode($data))) ."'
+	),
+";
+	
+	$metaxml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<EntityDescriptor entityID="' . htmlspecialchars($idpentityid) . '">
+
+	<IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:1.1:protocol urn:mace:shibboleth:1.0">
+
+		<KeyDescriptor use="signing">
+			<ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+				<ds:X509Data>
+					<ds:X509Certificate>' . htmlspecialchars($data) . '</ds:X509Certificate>
+				</ds:X509Data>
+			</ds:KeyInfo>
+		</KeyDescriptor>
+
+		<NameIDFormat>urn:mace:shibboleth:1.0:nameIdentifier</NameIDFormat>
 		
-		$t = new SimpleSAML_XHTML_Template($config, 'metadata.php', 'admin');
+		<SingleSignOnService Binding="urn:mace:shibboleth:1.0:profiles:AuthnRequest"
+			Location="' . htmlspecialchars($metadata->getGenerated('SingleSignOnService', 'shib13-idp-hosted')) . '"/>
+
+	</IDPSSODescriptor>
+
+	<ContactPerson contactType="technical">
+		<SurName>' . $config->getValue('technicalcontact_name', 'Not entered') . '</SurName>
+		<EmailAddress>' . $config->getValue('technicalcontact_email', 'Not entered') . '</EmailAddress>
+	</ContactPerson>
 	
-		$t->data['header'] = 'shib13-idp';
-		
-		$t->data['metaurl'] = SimpleSAML_Utilities::addURLparameter(SimpleSAML_Utilities::selfURLNoQuery(), array('output' => 'xml'));
-		$t->data['metadata'] = htmlspecialchars($metaxml);
-		$t->data['metadataflat'] = htmlspecialchars($metaflat);
+</EntityDescriptor>';
 	
-		$t->data['defaultidp'] = $defaultidp;
-		
-		$t->show();
-		
-	} else {
 	
+	if (array_key_exists('output', $_GET) && $_GET['output'] == 'xml') {
 		header('Content-Type: application/xml');
 		
 		echo $metaxml;
@@ -88,6 +86,19 @@ try {
 	}
 
 
+	$defaultidp = $config->getValue('default-shib13-idp');
+	
+	$t = new SimpleSAML_XHTML_Template($config, 'metadata.php');
+
+	$t->data['header'] = 'Shib 1.3 IdP Metadata';
+	
+	$t->data['metaurl'] = SimpleSAML_Utilities::addURLparameter(SimpleSAML_Utilities::selfURLNoQuery(), 'output=xml');
+	$t->data['metadata'] = htmlspecialchars($metaxml);
+	$t->data['metadataflat'] = htmlspecialchars($metaflat);
+
+	$t->data['defaultidp'] = $defaultidp;
+	
+	$t->show();
 	
 } catch(Exception $exception) {
 	

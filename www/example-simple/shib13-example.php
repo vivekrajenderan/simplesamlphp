@@ -1,25 +1,23 @@
 <?php
 
 /**
- * The _include script registers a autoloader for the simpleSAMLphp libraries. It also
- * initializes the simpleSAMLphp config class with the correct path.
+ * The _include script sets simpleSAMLphp libraries in the PHP PATH, as well as 
+ * initialize the simpleSAMLphp config class with the correct path.
  */
 require_once('../_include.php');
 
-/*
- * Explisit instruct consent page to send no-cache header to browsers 
- * to make sure user attribute information is not store on client disk.
- * 
- * In an vanilla apache-php installation is the php variables set to:
- * session.cache_limiter = nocache
- * so this is just to make sure.
+/**
+ * We need to load a few classes from simpleSAMLphp. These are available because
+ * the _include script above did set the PHP class PATH properly.
  */
-session_cache_limiter('nocache');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Utilities.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Session.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/XHTML/Template.php');
 
 
 /* Load simpleSAMLphp, configuration and metadata */
 $config = SimpleSAML_Configuration::getInstance();
-$session = SimpleSAML_Session::getInstance();
+$session = SimpleSAML_Session::getInstance(TRUE);
 
 /**
  * Check if valid local session exists, and the authority is the Shib 1.3 SP
@@ -40,38 +38,17 @@ $session = SimpleSAML_Session::getInstance();
  * authenticated, and therefore passes the if sentence below, and moves on to 
  * retrieving attributes from the session.
  */
-if (!$session->isValid('shib13') ) {
+if (!isset($session) || !$session->isValid('shib13') ) {	
 	SimpleSAML_Utilities::redirect(
 		'/' . $config->getBaseURL() . 'shib13/sp/initSSO.php',
 		array('RelayState' => SimpleSAML_Utilities::selfURL())
 	);
 }
 
-/* Prepare attributes for presentation 
-* and call a hook function for organizing the attribute array
-*/
-$attributes = $session->getAttributes();
-$para = array(
-	'attributes' => &$attributes
-);
-SimpleSAML_Module::callHooks('attributepresentation', $para);
+$t = new SimpleSAML_XHTML_Template($config, 'status.php');
 
-/*
- * The attributes variable now contains all the attributes. So this variable is basicly all you need to perform integration in 
- * your PHP application.
- * 
- * To debug the content of the attributes variable, do something like:
- *
- * print_r($attributes);
- *
- */
-
-$t = new SimpleSAML_XHTML_Template($config, 'status.php', 'attributes');
-
-$t->data['header'] = '{status:header_shib}';
+$t->data['header'] = 'Shibboleth demo';
 $t->data['remaining'] = $session->remainingTime();
-$t->data['sessionsize'] = $session->getSize();
-$t->data['attributes'] = $attributes;
 $t->data['attributes'] = $session->getAttributes();
 $t->data['logout'] = null;
 $et->data['icon'] = 'bino.png';

@@ -11,8 +11,8 @@
  * @access private
  * @package OpenID
  * @author JanRain, Inc. <openid@janrain.com>
- * @copyright 2005-2008 Janrain, Inc.
- * @license http://www.apache.org/licenses/LICENSE-2.0 Apache
+ * @copyright 2005 Janrain, Inc.
+ * @license http://www.gnu.org/copyleft/lesser.html LGPL
  */
 
 if (!defined('Auth_OpenID_RAND_SOURCE')) {

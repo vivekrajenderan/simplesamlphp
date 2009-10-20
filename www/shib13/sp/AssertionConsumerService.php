@@ -2,53 +2,24 @@
 
 require_once('../../_include.php');
 
+
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Configuration.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Utilities.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Session.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Metadata/MetaDataStorageHandler.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/XML/Shib13/AuthnRequest.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Bindings/Shib13/HTTPPost.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/XHTML/Template.php');
+
 $config = SimpleSAML_Configuration::getInstance();
 
-$session = SimpleSAML_Session::getInstance();
-
-
-/**
- * Finish login operation.
- *
- * This helper function finishes a login operation and redirects the user back to the page which
- * requested the login.
- *
- * @param array $authProcState  The state of the authentication process.
- */
-function finishLogin($authProcState) {
-	assert('is_array($authProcState)');
-	assert('array_key_exists("Attributes", $authProcState)');
-	assert('array_key_exists("core:shib13-sp:NameID", $authProcState)');
-	assert('array_key_exists("core:shib13-sp:SessionIndex", $authProcState)');
-	assert('array_key_exists("core:shib13-sp:TargetURL", $authProcState)');
-	assert('array_key_exists("Source", $authProcState)');
-	assert('array_key_exists("entityid", $authProcState["Source"])');
-
-	global $session;
-
-	/* Update the session information */
-	$session->doLogin('shib13');
-	$session->setAttributes($authProcState['Attributes']);
-	$session->setNameID($authProcState['core:shib13-sp:NameID']);
-	$session->setSessionIndex($authProcState['core:shib13-sp:SessionIndex']);
-	$session->setIdP($authProcState['Source']['entityid']);
-
-	SimpleSAML_Utilities::redirect($authProcState['core:shib13-sp:TargetURL']);
-}
+$session = SimpleSAML_Session::getInstance(TRUE);
 
 
 SimpleSAML_Logger::info('Shib1.3 - SP.AssertionConsumerService: Accessing Shibboleth 1.3 SP endpoint AssertionConsumerService');
 
-if (!$config->getBoolean('enable.shib13-sp', false))
+if (!$config->getValue('enable.shib13-sp', false))
 	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOACCESS');
-
-if (array_key_exists(SimpleSAML_Auth_ProcessingChain::AUTHPARAM, $_REQUEST)) {
-	/* We have returned from the authentication processing filters. */
-
-	$authProcId = $_REQUEST[SimpleSAML_Auth_ProcessingChain::AUTHPARAM];
-	$authProcState = SimpleSAML_Auth_ProcessingChain::fetchProcessedState($authProcId);
-	finishLogin($authProcState);
-}
 
 if (empty($_POST['SAMLResponse'])) 
 	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'ACSPARAMS', $exception);
@@ -61,43 +32,40 @@ try {
 	$authnResponse = $binding->decodeResponse($_POST);
 
 	$authnResponse->validate();
-
-	/* Successfully authenticated. */
-
-	$idpmetadata = $metadata->getMetadata($authnResponse->getIssuer(), 'shib13-idp-remote');
-
-	SimpleSAML_Logger::info('Shib1.3 - SP.AssertionConsumerService: Successful authentication to IdP ' . $idpmetadata['entityid']);
+	$session = $authnResponse->createSession();
 
 
-	SimpleSAML_Logger::stats('shib13-sp-SSO ' . $metadata->getMetaDataCurrentEntityID('shib13-sp-hosted') . ' ' . $idpmetadata['entityid'] . ' NA');
+	if (isset($session)) {
+
+		SimpleSAML_Logger::info('Shib1.3 - SP.AssertionConsumerService: Successfully created local session from Authentication Response');
+
+		/**
+		 * Make a log entry in the statistics for this SSO login.
+		 */
+		$tempattr = $session->getAttributes();
+		$realmattr = $config->getValue('statistics.realmattr', null);
+		$realmstr = 'NA';
+		if (!empty($realmattr)) {
+			if (array_key_exists($realmattr, $tempattr) && is_array($tempattr[$realmattr]) ) {
+				$realmstr = $tempattr[$realmattr][0];
+			} else {
+				SimpleSAML_Logger::warning('Could not get realm attribute to log [' . $realmattr. ']');
+			}
+		} 
+		SimpleSAML_Logger::stats('shib13-sp-SSO ' . $metadata->getMetaDataCurrentEntityID('shib13-sp-hosted') . ' ' . $session->getIdP() . ' ' . $realmstr);
 
 
-	$relayState = $authnResponse->getRelayState();
-	if (!isset($relayState)) {
-		SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NORELAYSTATE');
+	
+		$relayState = $authnResponse->getRelayState();
+		if (isset($relayState)) {
+			SimpleSAML_Utilities::redirect($relayState);
+		} else {
+			SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NORELAYSTATE');
+		}
+	} else {
+		SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOSESSION');
 	}
 
-	$spmetadata = $metadata->getMetaData(NULL, 'shib13-sp-hosted');
-
-	/* Begin module attribute processing */
-	$pc = new SimpleSAML_Auth_ProcessingChain($idpmetadata, $spmetadata, 'sp');
-
-	$authProcState = array(
-		'core:shib13-sp:NameID' => $authnResponse->getNameID(),
-		'core:shib13-sp:SessionIndex' => $authnResponse->getSessionIndex(),
-		'core:shib13-sp:TargetURL' => $relayState,
-		'ReturnURL' => SimpleSAML_Utilities::selfURLNoQuery(),
-		'Attributes' => $authnResponse->getAttributes(),
-		'Destination' => $spmetadata,
-		'Source' => $idpmetadata,
-		);
-
-	$pc->processState($authProcState);
-	/* Since this function returns, processing has completed and attributes have
-	 * been updated.
-	 */
-
-	finishLogin($authProcState);
 
 } catch(Exception $exception) {
 	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'GENERATEAUTHNRESPONSE', $exception);

@@ -2,6 +2,11 @@
 
 require_once('../_include.php');
 
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Configuration.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Metadata/SAMLParser.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/XHTML/Template.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Utilities.php');
+
 try {
 
 	$config = SimpleSAML_Configuration::getInstance();
@@ -9,7 +14,6 @@ try {
 	if(array_key_exists('xmldata', $_POST)) {
 		$xmldata = $_POST['xmldata'];
 
-		SimpleSAML_Utilities::validateXMLDocument($xmldata, 'saml-meta');
 		$entities = SimpleSAML_Metadata_SAMLParser::parseDescriptorsString($xmldata);
 
 		/* Get all metadata for the entities. */
@@ -39,13 +43,8 @@ try {
 					continue;
 				}
 
-				/* Remove the entityDescriptor element because it is unused, and only
-				 * makes the output harder to read.
-				 */
-				unset($entityMetadata['entityDescriptor']);
-
-				$text .= var_export($entityId, TRUE) . ' => ' .
-					var_export($entityMetadata, TRUE) . ",\n";
+				$text .= '$metadata[\'' . addslashes($entityId) . '\'] = ' .
+					var_export($entityMetadata, TRUE) . ';' . "\n";
 			}
 
 			$entities = $text;
@@ -57,7 +56,7 @@ try {
 	}
 
 
-	$template = new SimpleSAML_XHTML_Template($config, 'metadata-converter.php', 'admin');
+	$template = new SimpleSAML_XHTML_Template($config, 'metadata-converter.php');
 
 	$template->data['xmldata'] = $xmldata;
 	$template->data['output'] = $output;

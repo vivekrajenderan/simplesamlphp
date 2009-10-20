@@ -2,6 +2,12 @@
 
 require_once('../../www/_include.php');
 
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Utilities.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Session.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Logger.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Metadata/MetaDataStorageHandler.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/XHTML/Template.php');
+
 $config = SimpleSAML_Configuration::getInstance();
 $metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
 $session = SimpleSAML_Session::getInstance();
@@ -70,20 +76,12 @@ if (isset($_POST['username'])) {
 							/**
 							 * Uncomment this to debug vendor attributes.
 							 */
-							// printf("Got Vendor Attr:%d %d Bytes %s<br/>", $attrv, strlen($datav), bin2hex($datav));
+							// printf("Got Vendor Attr:%d %d Bytes %s\n", $attrv, strlen($datav), bin2hex($datav));
 							
-							if ($vendor == $config->getValue('auth.radius.vendor') && $attrv == $config->getValue('auth.radius.vendor-attr')) {
-
-								$attrib_name  = strtok ($datav,'=');
-								$attrib_value = strtok ('=');
-
-								// if the attribute name is already in result set, add another value
-								if (array_key_exists($attrib_name, $attributes)) {
-									$attributes[$attrib_name][] = $attrib_value;
-								} else {
-									$attributes[$attrib_name] = array($attrib_value);
-								}
-							}
+							if ($vendor == $config->getValue('auth.radius.vendor') && $attrv == $config->getValue('auth.radius.vendor-attr'))
+							   $attrib_name  = strtok ($datav,'=');
+							   $attrib_value = strtok ('=');
+							   $attributes = $attributes + array($attrib_name => array($attrib_value));
 						}
 					}
 				}
@@ -93,7 +91,7 @@ if (isset($_POST['username'])) {
 				
 				SimpleSAML_Logger::info('AUTH - radius: '. $_POST['username'] . ' successfully authenticated');
 				
-				$session->doLogin('login-radius');
+				$session->setAuthenticated(true, 'login-radius');
 				
 				$session->setAttributes($attributes);
 				$session->setNameID(array(
@@ -139,7 +137,7 @@ if (isset($_POST['username'])) {
 }
 
 
-$t = new SimpleSAML_XHTML_Template($config, 'login.php', 'login');
+$t = new SimpleSAML_XHTML_Template($config, 'login.php', 'login.php');
 
 $t->data['header'] = 'simpleSAMLphp: Enter username and password';	
 $t->data['relaystate'] = $_REQUEST['RelayState'];

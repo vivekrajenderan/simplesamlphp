@@ -7,22 +7,6 @@
 $config = array(
 
 	/*
-	 * What type of login Auth MemCookie will use.
-	 * Can be either 'authsource', 'saml2' or 'shib13'.
-	 *
-	 * For backwards compatibility, the default value if unset is 'saml2'.
-	 * New installations should use 'authsource'.
-	 */
-	'loginmethod' => 'authsource',
-
-	/*
-	 * The authentication source that should be used.
-	 *
-	 * This must be one of the authentication sources configured in config/authsources.php.
-	 */
-	'authsource' => 'default-sp',
-
-	/*
 	 * This is the name of the cookie we should save the session id in. The value of this option must match the
 	 * Auth_memCookie_CookieName option in the Auth MemCookie configuration. The default value is 'AuthMemCookie'.
 	 *
@@ -57,14 +41,13 @@ $config = array(
 	'groups' => NULL,
 
 	/*
-	 * This option contains the hostnames or IP addresses of the memcache servers where we should store the
-	 * authentication information. Separator is a comma. This option should match the address part of the
+	 * This option contains the hostname of IP address of the memcache server where we should store the
+	 * authentication information. Thos option should match the address part of the
 	 * Auth_memCookie_Memcached_AddrPort option in the Auth MemCookie configuration.
 	 *
 	 * Examples:
 	 *  'memcache.host' => '192.168.93.52',
 	 *  'memcache.host' => 'memcache.example.org',
-	 *  'memcache.host' => 'memcache1.example.org,memcache2.example.org'
 	 *
 	 * Default:
 	 *  'memcache.host' => '127.0.0.1',

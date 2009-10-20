@@ -2,20 +2,76 @@
 
 require_once('../../_include.php');
 
+
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Utilities.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Session.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/XHTML/Template.php');
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/Metadata/MetaDataStorageHandler.php');
+
+$config = SimpleSAML_Configuration::getInstance();
+$metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
+
+
 $session = SimpleSAML_Session::getInstance();
 
+SimpleSAML_Logger::info('Shib1.3 - SP.idpDisco : Accessing Shib 1.3 discovery service');
+
+if (!$config->getValue('enable.shib13-sp', false))
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOACCESS');
+
+
 try {
-	$discoHandler = new SimpleSAML_XHTML_IdPDisco(array('shib13-idp-remote'), 'shib13');
+
+	if (!isset($_GET['entityID'])) throw new Exception('Missing parameter: entityID');
+	if (!isset($_GET['return'])) throw new Exception('Missing parameter: return');
+	if (!isset($_GET['returnIDParam'])) throw new Exception('Missing parameter: returnIDParam');
+
+	$spentityid = $_GET['entityID'];
+	$return = $_GET['return'];
+	$returnidparam = $_GET['returnIDParam'];
+	
 } catch (Exception $exception) {
-	/* An error here should be caused by invalid query parameters. */
 	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'DISCOPARAMS', $exception);
 }
 
+
+if (isset($_GET['idpentityid'])) {
+
+	SimpleSAML_Logger::info('Shib1.3 - SP.idpDisco : Choice made [ ' . $_GET['idpentityid'] . '] Setting preferedidp cookie.');
+
+	$idpentityid = $_GET['idpentityid'];
+	setcookie('preferedidp',$idpentityid,time()+60*60*24*90); // set cookie valid 90 days
+	
+	$returnurl = SimpleSAML_Utilities::addURLparameter($return, $returnidparam . '=' . $idpentityid);
+	SimpleSAML_Utilities::redirect($returnurl);
+	
+}
+
 try {
-	$discoHandler->handleRequest();
-} catch(Exception $exception) {
-	/* An error here should be caused by metadata. */
+	$idplist = $metadata->getList('shib13-idp-remote');
+} catch (Exception $exception) {
 	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'METADATA', $exception);
 }
+
+if ($config->getValue('idpdisco.layout') == 'dropdown') {
+	$t = new SimpleSAML_XHTML_Template($config, 'selectidp-dropdown.php');
+	$t->data['header'] = 'Select your identity provider';
+	$t->data['idplist'] = $idplist;
+	$t->data['return']= $return;
+	$t->data['returnIDParam'] = $returnidparam;
+	$t->data['entityID'] = $spentityid;
+	$t->data['preferedidp'] = (!empty($_COOKIE['preferedidp'])) ? $_COOKIE['preferedidp'] : null;
+	$t->data['urlpattern'] = htmlentities(SimpleSAML_Utilities::selfURLNoQuery());
+	$t->show();
+}
+else
+{
+	$t = new SimpleSAML_XHTML_Template($config, 'selectidp-links.php');
+	$t->data['header'] = 'Select your identity provider';
+	$t->data['idplist'] = $idplist;
+	$t->data['urlpattern'] = htmlentities(SimpleSAML_Utilities::selfURL() . '&idpentityid=');
+	$t->show();
+}
+
 
 ?>

@@ -2,21 +2,13 @@
 
 require_once('_include.php');
 
-if(array_key_exists('sptype', $_GET) && array_key_exists('spentityid', $_GET)) {
-	$metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
-	$spmetadata = $metadata->getMetaData($_GET['spentityid'], $_GET['sptype']);
-} else {
-	$spmetadata = array();
-}
+require_once((isset($SIMPLESAML_INCPREFIX)?$SIMPLESAML_INCPREFIX:'') . 'SimpleSAML/XHTML/Template.php');
+
 /* Load simpleSAMLphp, configuration */
 $config = SimpleSAML_Configuration::getInstance();
-$session = SimpleSAML_Session::getInstance();
+$session = SimpleSAML_Session::getInstance(true);
 
 $t = new SimpleSAML_XHTML_Template($config, 'noconsent.php');
-$t->data['spmetadata'] = $spmetadata;
-if(array_key_exists('resumeFrom', $_REQUEST)) {
-	$t->data['resumeFrom'] = $_REQUEST['resumeFrom'];
-}
 $t->show();
 
 ?>
