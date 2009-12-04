@@ -31,7 +31,7 @@ class sspmod_aggregator_Aggregator {
 		$this->aConfig = $aConfig;
 		$this->id = $id;
 		
-		$this->sets = array('saml20-idp-remote', 'saml20-sp-remote', 'shib13-idp-remote', 'shib13-sp-remote', 'attributeauthority-remote');
+		$this->sets = array('saml20-idp-remote', 'saml20-sp-remote', 'shib13-idp-remote', 'shib13-sp-remote');
 		
 		if ($this->aConfig->hasValue('set')) {
 			$this->limitSets($this->aConfig->getString('set'));
@@ -54,7 +54,7 @@ class sspmod_aggregator_Aggregator {
 			case 'shib13' :
 				$this->sets = array_intersect($this->sets, array('shib13-idp-remote', 'shib13-sp-remote')); break;
 			case 'idp' :
-				$this->sets = array_intersect($this->sets, array('saml20-idp-remote', 'shib13-idp-remote', 'attributeauthority-remote')); break;
+				$this->sets = array_intersect($this->sets, array('saml20-idp-remote', 'shib13-idp-remote')); break;
 			case 'sp' :
 				$this->sets = array_intersect($this->sets, array('saml20-sp-remote', 'shib13-sp-remote')); break;
 
@@ -96,10 +96,7 @@ class sspmod_aggregator_Aggregator {
 			foreach ($this->sets as $set) {
 				
 				foreach ($source->getMetadataSet($set) as $entityId => $metadata) {
-
-					$metadata['entityid'] = $entityId;
-					$metadata['metadata-set'] = $set;
-
+					
 					if (isset($metadata['tags']) && 
 							count(array_intersect($this->excludeTags, $metadata['tags'])) > 0) {
 						

@@ -117,20 +117,6 @@ extends SimpleSAML_SessionHandler {
 
 		return TRUE;
 	}
-
-
-	/**
-	 * Check whether the session cookie is set.
-	 *
-	 * This function will only return FALSE if is is certain that the cookie isn't set.
-	 *
-	 * @return bool  TRUE if it was set, FALSE if not.
-	 */
-	public function hasSessionCookie() {
-
-		return array_key_exists('SimpleSAMLSessionID', $_COOKIE);
-	}
-
 }
 
 ?>

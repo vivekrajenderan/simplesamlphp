@@ -17,8 +17,6 @@ if (!($source instanceof sspmod_saml2_Auth_Source_SP)) {
 $entityId = $source->getEntityId();
 
 $metaArray = array(
-	'metadata-set' => 'saml20-sp-remote',
-	'entityid' => $entityId,
 	'AssertionConsumerService' => SimpleSAML_Module::getModuleURL('saml2/sp/acs.php'),
 	'SingleLogoutService' => SimpleSAML_Module::getModuleURL('saml2/sp/logout.php/' . $sourceId),
 	'NameIDFormat' => $source->getNameIDFormat(),

@@ -73,8 +73,8 @@ function handleError(Exception $exception) {
 		if (array_key_exists('ConsumerURL', $requestcache)) {
 			$consumerURL = $requestcache['ConsumerURL'];
 		} else {
-			$consumerURL = $spMetadata->getDefaultEndpoint('AssertionConsumerService', array(SAML2_Const::BINDING_HTTP_POST));
-			$consumerURL = $consumerURL['Location'];
+			$urlArray = $spMetadata->getArrayizeString('AssertionConsumerService');
+			$consumerURL = $urlArray[0];
 		}
 
 		$ar = sspmod_saml2_Message::buildResponse($idpMetadata, $spMetadata, $consumerURL);
@@ -129,10 +129,9 @@ if (isset($_REQUEST['SAMLRequest'])) {
 			throw new SimpleSAML_Error_BadRequest('Received message on authentication request endpoint without issuer.');
 		}
 
-		$spMetadata = $metadata->getMetaDataConfig($issuer, 'saml20-sp-remote');
 
 		sspmod_saml2_Message::validateMessage(
-			$spMetadata,
+			$metadata->getMetaDataConfig($issuer, 'saml20-sp-remote'),
 			$metadata->getMetaDataConfig($idpentityid, 'saml20-idp-hosted'),
 			$authnrequest);
 
@@ -146,37 +145,49 @@ if (isset($_REQUEST['SAMLRequest'])) {
 		);
 			
 
+		$spentityid = $requestcache['Issuer'];
+		$spmetadata = $metadata->getMetaData($spentityid, 'saml20-sp-remote');
 
 		$consumerURL = $authnrequest->getAssertionConsumerServiceURL();
 		if ($consumerURL !== NULL) {
-			$found = FALSE;
-			foreach ($spMetadata->getEndpoints('AssertionConsumerService') as $ep) {
-				if ($ep['Binding'] !== SAML2_Const::BINDING_HTTP_POST) {
-					continue;
-				}
-				if ($ep['Location'] !== $consumerURL) {
-					continue;
-				}
+			$consumerArray = SimpleSAML_Utilities::arrayize($spmetadata['AssertionConsumerService']);
+			if (in_array($consumerURL, $consumerArray, TRUE)) {
 				$requestcache['ConsumerURL'] = $consumerURL;
-				$found = TRUE;
-				break;
-			}
-
-			if (!$found) {
-				SimpleSAML_Logger::warning('Authentication request from ' . var_export($issuer, TRUE) .
+			} else {
+				SimpleSAML_Logger::warning('Authentication request from ' . var_export($spentityid, TRUE) .
 					' contains invalid AssertionConsumerService URL. Was ' .
-					var_export($consumerURL, TRUE) . '.');
+					var_export($consumerURL, TRUE) . ', could be ' . var_export($consumerArray, TRUE) . '.');
 			}
 		}
 
 		$IDPList = $authnrequest->getIDPList();
-		$IDPList = array_unique(array_merge($IDPList, $spMetadata->getArrayizeString('IDPList', array())));
-		$requestcache['IDPList'] = $IDPList;
 
+		if(array_key_exists('IDPList', $spmetadata)) {
+			$IDPList = array_unique(array_merge($IDPList, $spmetadata['IDPList']));
+		}
+		
+		$requestcache['IDPList'] = $IDPList;
+		
 		/*
 		 * Handle the ForceAuthn option.
 		 */
-		$forceAuthn = $spMetadata->getBoolean('ForceAuthn', FALSE);
+
+		/* The default value is FALSE. */
+		$forceAuthn = FALSE;
+
+		if(array_key_exists('ForceAuthn', $spmetadata)) {
+			/* The ForceAuthn flag is set in the metadata for this SP. */
+			$forceAuthn = $spmetadata['ForceAuthn'];
+			if(!is_bool($spmetadata['ForceAuthn'])) {
+				throw new Exception('The ForceAuthn option in the metadata for the sp [' . $spentityid . '] is not a boolean.');
+			}
+
+			if($spmetadata['ForceAuthn']) {
+				/* ForceAuthn enabled in the metadata for the SP. */
+				$forceAuthn = TRUE;
+			}
+		}
+
 		if($authnrequest->getForceAuthn()) {
 			/* The ForceAuthn flag was set to true in the authentication request. */
 			$forceAuthn = TRUE;
@@ -271,18 +282,7 @@ if (isset($_REQUEST['SAMLRequest'])) {
  * If the spentityid parameter is provided, we will fallback to a unsolited response to the SP.
  */
 } elseif(array_key_exists('spentityid', $_GET)) {
-
-	if (isset($_REQUEST['cookieTime'])) {
-		$cookieTime = (int)$_REQUEST['cookieTime'];
-		if ($cookieTime + 3 > time()) {
-			/*
-			 * Less than three seconds has passed since we were
-			 * here the last time. Cookies are probably disabled.
-			 */
-			SimpleSAML_Utilities::checkCookie(SimpleSAML_Utilities::selfURL());
-		}
-	}
-
+	
 	/* Creating a request cache, even though there was no request, and adding the
 	 * information that is neccessary to be able to respond with an unsolited response
 	 */
@@ -353,7 +353,6 @@ if($needAuth && !$isPassive) {
 		 */
 		$sessionLostParams = array(
 			'spentityid' => $requestcache['Issuer'],
-			'cookieTime' => time(),
 			);
 		if (isset($requestcache['RelayState'])) {
 			$sessionLostParams['RelayState'] = $requestcache['RelayState'];
@@ -396,8 +395,10 @@ if($needAuth && !$isPassive) {
 	try {
 	
 		$spentityid = $requestcache['Issuer'];
-		$spMetadata = $metadata->getMetaDataConfig($spentityid, 'saml20-sp-remote');
+		$spmetadata = $metadata->getMetaData($spentityid, 'saml20-sp-remote');
 		
+		$sp_name = (isset($spmetadata['name']) ? $spmetadata['name'] : $spentityid);
+
 		SimpleSAML_Logger::info('SAML2.0 - IdP.SSOService: Sending back AuthnResponse to ' . $spentityid);
 		
 		/*
@@ -408,13 +409,13 @@ if($needAuth && !$isPassive) {
 		/* Authentication processing operations. */
 		if (!isset($authProcState)) {
 			/* Not processed. */
-			$pc = new SimpleSAML_Auth_ProcessingChain($idpmetadata, $spMetadata->toArray(), 'idp');
+			$pc = new SimpleSAML_Auth_ProcessingChain($idpmetadata, $spmetadata, 'idp');
 
 			$authProcState = array(
 				'core:saml20-idp:requestcache' => $requestcache,
 				'ReturnURL' => SimpleSAML_Utilities::selfURLNoQuery(),
 				'Attributes' => $attributes,
-				'Destination' => $spMetadata->toArray(),
+				'Destination' => $spmetadata,
 				'Source' => $idpmetadata,
 				'isPassive' => $isPassive,
 				SimpleSAML_Auth_State::EXCEPTION_HANDLER_URL => SimpleSAML_Utilities::selfURLNoQuery(),
@@ -460,11 +461,12 @@ if($needAuth && !$isPassive) {
 
 		/* Begin by creating the assertion. */
 		$idpMetadata = $metadata->getMetaDataConfig($idpentityid, 'saml20-idp-hosted');
+		$spMetadata = $metadata->getMetaDataConfig($spentityid, 'saml20-sp-remote');
 		if (array_key_exists('ConsumerURL', $requestcache)) {
 			$consumerURL = $requestcache['ConsumerURL'];
 		} else {
-			$consumerURL = $spMetadata->getDefaultEndpoint('AssertionConsumerService', array(SAML2_Const::BINDING_HTTP_POST));
-			$consumerURL = $consumerURL['Location'];
+			$urlArray = $spMetadata->getArrayizeString('AssertionConsumerService');
+			$consumerURL = $urlArray[0];
 		}
 
 		$assertion = sspmod_saml2_Message::buildAssertion($idpMetadata, $spMetadata, $attributes, $consumerURL);

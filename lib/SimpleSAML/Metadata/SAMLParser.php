@@ -85,14 +85,6 @@ class SimpleSAML_Metadata_SAMLParser {
 
 
 	/**
-	 * List of attribute authorities we have found.
-	 *
-	 * @var array
-	 */
-	private $attributeAuthorityDescriptors = array();
-
-
-	/**
 	 * This is an associative array with the organization name for this entity. The key of
 	 * the associative array is the language code, while the value is a string with the
 	 * organization name.
@@ -176,11 +168,6 @@ class SimpleSAML_Metadata_SAMLParser {
 			$this->validator[] = $entitiesValidator;
 		}
 
-		/* Process Extensions element, if it exists. */
-		$ext = self::processExtensions($entityElement);
-		$this->scopes = $ext['scopes'];
-		$this->tags = $ext['tags'];
-
 		/* Look over the child nodes for any known element types. */
 		for($i = 0; $i < $entityElement->childNodes->length; $i++) {
 			$child = $entityElement->childNodes->item($i);
@@ -200,17 +187,14 @@ class SimpleSAML_Metadata_SAMLParser {
 				$this->processIDPSSODescriptor($child, $expireTime);
 			}
 
-			if(SimpleSAML_Utilities::isDOMElementOfType($child, 'AttributeAuthorityDescriptor', '@md') === TRUE) {
-				$this->processAttributeAuthorityDescriptor($child, $expireTime);
-			}
-
 			if(SimpleSAML_Utilities::isDOMElementOfType($child, 'Organization', '@md') === TRUE) {
 				$this->processOrganization($child);
 			}
-
+			
+			if(SimpleSAML_Utilities::isDOMElementOfType($child, 'Extensions', '@md') === TRUE) {
+				$this->processExtensions($child);
+			}
 		}
-
-
 	}
 
 
@@ -453,30 +437,11 @@ class SimpleSAML_Metadata_SAMLParser {
 		if (!empty($this->organizationURL)) {
 			$ret['url'] = $this->organizationURL;
 		}
-
+		
+		if (!empty($this->tags)) {
+			$ret['tags'] = $this->tags;
+		}
 		return $ret;
-	}
-
-
-	/**
-	 * Add data parsed from extensions to metadata.
-	 *
-	 * @param array &$metadata  The metadata that should be updated.
-	 * @param array $roleDescriptor  The parsed role desciptor.
-	 */
-	private function addExtensions(array &$metadata, array $roleDescriptor) {
-		assert('array_key_exists("scopes", $roleDescriptor)');
-		assert('array_key_exists("tags", $roleDescriptor)');
-
-		$scopes = array_merge($this->scopes, array_diff($roleDescriptor['scopes'], $this->scopes));
-		if (!empty($scopes)) {
-			$metadata['scopes'] = $scopes;
-		}
-
-		$tags = array_merge($this->tags, array_diff($roleDescriptor['tags'], $this->tags));
-		if (!empty($tags)) {
-			$metadata['tags'] = $tags;
-		}
 	}
 
 
@@ -495,7 +460,6 @@ class SimpleSAML_Metadata_SAMLParser {
 	public function getMetadata1xSP() {
 
 		$ret = $this->getMetadataCommon();
-		$ret['metadata-set'] = 'shib13-sp-remote';
 
 
 		/* Find SP information which supports one of the SAML 1.x protocols. */
@@ -512,8 +476,15 @@ class SimpleSAML_Metadata_SAMLParser {
 			$ret['expire'] = $spd['expire'];
 		}
 
-		/* Find the assertion consumer service endpoints. */
-		$ret['AssertionConsumerService'] = $spd['AssertionConsumerService'];
+		/* Find the assertion consumer service endpoint. */
+		$acs = $this->getDefaultEndpoint($spd['AssertionConsumerService'], array(self::SAML_1X_POST_BINDING));
+		if($acs === NULL) {
+			SimpleSAML_Logger::warning('Could not find a supported SAML 1.x AssertionConsumerService endpoint for ' .
+				var_export($ret['entityid'], TRUE) . '.');
+			return;
+		} else {
+			$ret['AssertionConsumerService'] = $acs['Location'];
+		}
 
 		/* Add the list of attributes the SP should receive. */
 		if (array_key_exists('attributes', $spd)) {
@@ -536,9 +507,6 @@ class SimpleSAML_Metadata_SAMLParser {
 			break;
 		}
 
-		/* Add extensions. */
-		$this->addExtensions($ret, $spd);
-
 		return $ret;
 	}
 
@@ -560,7 +528,6 @@ class SimpleSAML_Metadata_SAMLParser {
 	public function getMetadata1xIdP() {
 
 		$ret = $this->getMetadataCommon();
-		$ret['metadata-set'] = 'shib13-idp-remote';
 
 		/* Find IdP information which supports the SAML 1.x protocol. */
 		$idp = $this->getIdPDescriptors(self::$SAML1xProtocols);
@@ -576,11 +543,21 @@ class SimpleSAML_Metadata_SAMLParser {
 			$ret['expire'] = $idp['expire'];
 		}
 
-		/* Find the SSO service endpoints. */
-		$ret['SingleSignOnService'] = $idp['SingleSignOnService'];
+		/* Find the SSO service endpoint. */
+		$sso = $this->getDefaultEndpoint($idp['SingleSignOnService'], array(self::SAML_1x_AUTHN_REQUEST));
+		if($sso === NULL) {
+			SimpleSAML_Logger::warning('Could not find a supported SAML 1.x SingleSignOnService endpoint for ' .
+				var_export($ret['entityid'], TRUE) . '.');
+			return;
+		} else {
+			$ret['SingleSignOnService'] = $sso['Location'];
+		}
 
 		/* Find the ArtifactResolutionService endpoint. */
-		$ret['ArtifactResolutionService'] = $idp['ArtifactResolutionService'];
+		$artifactResolutionService = $this->getDefaultEndpoint($idp['ArtifactResolutionService'], array(self::SAML_1X_SOAP_BINDING));
+		if ($artifactResolutionService !== NULL) {
+			$ret['ArtifactResolutionService'] = $artifactResolutionService['Location'];
+		}
 
 		/* Add certificate to metadata. Only the first valid certificate will be added. */
 		$ret['certFingerprint'] = array();
@@ -601,8 +578,6 @@ class SimpleSAML_Metadata_SAMLParser {
 			break;
 		}
 
-		/* Add extensions. */
-		$this->addExtensions($ret, $idp);
 
 		return $ret;
 	}
@@ -625,7 +600,6 @@ class SimpleSAML_Metadata_SAMLParser {
 	public function getMetadata20SP() {
 
 		$ret = $this->getMetadataCommon();
-		$ret['metadata-set'] = 'saml20-sp-remote';
 
 
 		/* Find SP information which supports the SAML 2.0 protocol. */
@@ -643,11 +617,34 @@ class SimpleSAML_Metadata_SAMLParser {
 		}
 
 		/* Find the assertion consumer service endpoints. */
-		$ret['AssertionConsumerService'] = $spd['AssertionConsumerService'];
+		$defaultACS = $this->getDefaultEndpoint($spd['AssertionConsumerService'], array(self::SAML_20_POST_BINDING));
+		if($defaultACS === NULL) {
+			SimpleSAML_Logger::warning('Could not find a supported SAML 2.0 AssertionConsumerService endpoint for ' .
+				var_export($ret['entityid'], TRUE) . '.');
+		} else {
+			$defaultACS = $defaultACS['Location'];
+			$retACS = array($defaultACS);
+
+			$allACS = $this->getEndpoints($spd['AssertionConsumerService'], array(self::SAML_20_POST_BINDING));
+			foreach ($allACS as $acs) {
+				$acs = $acs['Location'];
+				if ($acs !== $defaultACS) {
+					$retACS[] = $acs;
+				}
+			}
+
+			$ret['AssertionConsumerService'] = $retACS;
+		}
 
 
 		/* Find the single logout service endpoint. */
-		$ret['SingleLogoutService'] = $spd['SingleLogoutService'];
+		$slo = $this->getDefaultEndpoint($spd['SingleLogoutService'], array(self::SAML_20_REDIRECT_BINDING));
+		if($slo !== NULL) {
+			$ret['SingleLogoutService'] = $slo['Location'];
+			if (isset($slo['ResponseLocation']) && $slo['Location'] != $slo['ResponseLocation']) {
+				$ret['SingleLogoutServiceResponse'] = $slo['ResponseLocation'];
+			}
+		}
 
 
 		/* Find the NameIDFormat. This may not exists. */
@@ -678,8 +675,6 @@ class SimpleSAML_Metadata_SAMLParser {
 		}
 
 
-		/* Add extensions. */
-		$this->addExtensions($ret, $spd);
 
 		return $ret;
 	}
@@ -704,7 +699,6 @@ class SimpleSAML_Metadata_SAMLParser {
 	public function getMetadata20IdP() {
 
 		$ret = $this->getMetadataCommon();
-		$ret['metadata-set'] = 'saml20-idp-remote';
 
 
 		/* Find IdP information which supports the SAML 2.0 protocol. */
@@ -720,6 +714,10 @@ class SimpleSAML_Metadata_SAMLParser {
 		if (array_key_exists('expire', $idp)) {
 			$ret['expire'] = $idp['expire'];
 		}
+		
+		if (array_key_exists('scopes', $idp))
+			$ret['scopes'] = $idp['scopes'];
+		
 
 		/* Enable redirect.sign if WantAuthnRequestsSigned is enabled. */
 		if ($idp['WantAuthnRequestsSigned']) {
@@ -727,14 +725,32 @@ class SimpleSAML_Metadata_SAMLParser {
 		}
 
 		/* Find the SSO service endpoint. */
-		$ret['SingleSignOnService'] = $idp['SingleSignOnService'];
+		$sso = $this->getDefaultEndpoint($idp['SingleSignOnService'], array(self::SAML_20_REDIRECT_BINDING));
+		if($sso === NULL) {
+			SimpleSAML_Logger::warning('Could not find a supported SAML 2.0 SingleSignOnService endpoint for ' .
+				var_export($ret['entityid'], TRUE) . '.');
+		} else {
+			$ret['SingleSignOnService'] = $sso['Location'];
+		}
 
 
 		/* Find the single logout service endpoint. */
-		$ret['SingleLogoutService'] = $idp['SingleLogoutService'];
+		$slo = $this->getDefaultEndpoint($idp['SingleLogoutService'], array(self::SAML_20_REDIRECT_BINDING));
+		if($slo !== NULL) {
+			$ret['SingleLogoutService'] = $slo['Location'];
+			
+			/* If the response location is set, include it in the returned metadata. */
+			if(array_key_exists('ResponseLocation', $slo)) {
+				$ret['SingleLogoutServiceResponse'] = $slo['ResponseLocation'];
+			}
+			
+		}
 
 		/* Find the ArtifactResolutionService endpoint. */
-		$ret['ArtifactResolutionService'] = $idp['ArtifactResolutionService'];
+		$artifactResolutionService = $this->getDefaultEndpoint($idp['ArtifactResolutionService'], array(SAML2_Const::BINDING_SOAP));
+		if ($artifactResolutionService !== NULL) {
+			$ret['ArtifactResolutionService'] = $artifactResolutionService['Location'];
+		}
 
 
 		/* Add certificate to metadata. Only the first valid certificate will be added. */
@@ -756,75 +772,9 @@ class SimpleSAML_Metadata_SAMLParser {
 			break;
 		}
 
-		/* Add extensions. */
-		$this->addExtensions($ret, $idp);
-
 		return $ret;
 	}
 
-
-	/**
-	 * Retrieve AttributeAuthorities from the metadata.
-	 *
-	 * @return array  Array of AttributeAuthorityDescriptor entries.
-	 */
-	public function getAttributeAuthorities() {
-
-		return $this->attributeAuthorityDescriptors;
-	}
-
-
-	/**
-	 * Parse a RoleDescriptorType element.
-	 *
-	 * The returned associative array has the following elements:
-	 * - 'protocols': Array with the protocols supported.
-         * - 'expire': Timestamp for when this descriptor expires.
-	 * - 'keys': Array of associative arrays with the elements from parseKeyDescriptor.
-	 *
-	 * @param DOMElement $element  The element we should extract metadata from.
-	 * @param int|NULL $expireTime  The unix timestamp for when this element should expire, or
-	 *                              NULL if unknwon.
-	 * @return Associative array with metadata we have extracted from this element.
-	 */
-	private static function parseRoleDescriptorType(DOMElement $element, $expireTime) {
-		assert('is_null($expireTime) || is_int($expireTime)');
-
-		$ret = array();
-
-		if ($expireTime === NULL) {
-			/* No expiry time defined by a parent element. Check if this element defines
-			 * one.
-			 */
-			$expireTime = self::getExpireTime($element);
-		}
-
-
-		if ($expireTime !== NULL) {
-			/* We have got an expire timestamp, either from this element, or one of the
-			 * parent elements.
-			 */
-			$ret['expire'] = $expireTime;
-		}
-
-		$ret['protocols'] = self::getSupportedProtocols($element);
-
-		/* Process KeyDescriptor elements. */
-		$ret['keys'] = array();
-		$keys = SimpleSAML_Utilities::getDOMChildren($element, 'KeyDescriptor', '@md');
-		foreach($keys as $kd) {
-			$key = self::parseKeyDescriptor($kd);
-			if($key !== NULL) {
-				$ret['keys'][] = $key;
-			}
-		}
-
-		$ext = self::processExtensions($element);
-		$ret['scopes'] = $ext['scopes'];
-		$ret['tags'] = $ext['tags'];
-
-		return $ret;
-	}
 
 
 	/**
@@ -846,13 +796,39 @@ class SimpleSAML_Metadata_SAMLParser {
 		assert('$element instanceof DOMElement');
 		assert('is_null($expireTime) || is_int($expireTime)');
 
-		$sd = self::parseRoleDescriptorType($element, $expireTime);
+		if ($expireTime === NULL) {
+			/* No expiry time defined by a parent element. Check if this element defines
+			 * one.
+			 */
+			$expireTime = self::getExpireTime($element);
+		}
+
+
+		$sd = array();
+
+		if ($expireTime !== NULL) {
+			/* We have got an expire timestamp, either from this element, or one of the
+			 * parent elements.
+			 */
+			$sd['expire'] = $expireTime;
+		}
+
+		$sd['protocols'] = self::getSupportedProtocols($element);
+		
 
 		/* Find all SingleLogoutService elements. */
-		$sd['SingleLogoutService'] = self::extractEndpoints($element, 'SingleLogoutService', FALSE);
+		$sd['SingleLogoutService'] = array();
+		$sls = SimpleSAML_Utilities::getDOMChildren($element, 'SingleLogoutService', '@md');
+		foreach($sls as $child) {
+			$sd['SingleLogoutService'][] = self::parseSingleLogoutService($child);
+		}
 
 		/* Find all ArtifactResolutionService elements. */
-		$sd['ArtifactResolutionService'] = self::extractEndpoints($element, 'ArtifactResolutionService', TRUE);
+		$sd['ArtifactResolutionService'] = array();
+		$acs = SimpleSAML_Utilities::getDOMChildren($element, 'ArtifactResolutionService', '@md');
+		foreach($acs as $child) {
+			$sd['ArtifactResolutionService'][] = self::parseArtifactResolutionService($child);
+		}
 
 
 		/* Process NameIDFormat elements. */
@@ -861,6 +837,17 @@ class SimpleSAML_Metadata_SAMLParser {
 		if(count($nif) > 0) {
 			$sd['nameIDFormats'][] = self::parseNameIDFormat($nif[0]);
 		}
+
+		/* Process KeyDescriptor elements. */
+		$sd['keys'] = array();
+		$keys = SimpleSAML_Utilities::getDOMChildren($element, 'KeyDescriptor', '@md');
+		foreach($keys as $kd) {
+			$key = self::parseKeyDescriptor($kd);
+			if($key !== NULL) {
+				$sd['keys'][] = $key;
+			}
+		}
+
 
 		return $sd;
 	}
@@ -880,7 +867,11 @@ class SimpleSAML_Metadata_SAMLParser {
 		$sp = self::parseSSODescriptor($element, $expireTime);
 
 		/* Find all AssertionConsumerService elements. */
-		$sp['AssertionConsumerService'] = self::extractEndpoints($element, 'AssertionConsumerService', TRUE);
+		$sp['AssertionConsumerService'] = array();
+		$acs = SimpleSAML_Utilities::getDOMChildren($element, 'AssertionConsumerService', '@md');
+		foreach($acs as $child) {
+			$sp['AssertionConsumerService'][] = self::parseAssertionConsumerService($child);
+		}
 
 		/* Find all the attributes and SP name... */
 		#$sp['attributes'] = array();
@@ -905,9 +896,20 @@ class SimpleSAML_Metadata_SAMLParser {
 		assert('is_null($expireTime) || is_int($expireTime)');
 
 		$idp = self::parseSSODescriptor($element, $expireTime);
+		
+		$extensions = SimpleSAML_Utilities::getDOMChildren($element, 'Extensions', '@md');
+		if (!empty($extensions)) 
+			$this->processExtensions($extensions[0]);
+
+		if (!empty($this->scopes)) $idp['scopes'] = $this->scopes;
+		
 
 		/* Find all SingleSignOnService elements. */
-		$idp['SingleSignOnService'] = self::extractEndpoints($element, 'SingleSignOnService', FALSE);
+		$idp['SingleSignOnService'] = array();
+		$acs = SimpleSAML_Utilities::getDOMChildren($element, 'SingleSignOnService', '@md');
+		foreach($acs as $child) {
+			$idp['SingleSignOnService'][] = self::parseSingleSignOnService($child);
+		}
 
 		if ($element->getAttribute('WantAuthnRequestsSigned') === 'true') {
 			$idp['WantAuthnRequestsSigned'] = TRUE;
@@ -920,74 +922,46 @@ class SimpleSAML_Metadata_SAMLParser {
 
 
 	/**
-	 * This function extracts metadata from a AttributeAuthorityDescriptor element.
+	 * Parse and process a Extensions element.
 	 *
-	 * @param DOMElement $element The element which should be parsed.
-	 * @param int|NULL $expireTime  The unix timestamp for when this element should expire, or
-	 *                              NULL if unknwon.
+	 * @param $element  The DOMElement which represents the Organization element.
 	 */
-	private function processAttributeAuthorityDescriptor(DOMElement $element, $expireTime) {
-		assert('is_null($expireTime) || is_int($expireTime)');
+	private function processExtensions($element) {
+		assert('$element instanceof DOMElement');
+		
+		
+		for($i = 0; $i < $element->childNodes->length; $i++) {
+			$child = $element->childNodes->item($i);
 
-		$aad = self::parseRoleDescriptorType($element, $expireTime);
-		$aad['entityid'] = $this->entityId;
-		$aad['metadata-set'] = 'attributeauthority-remote';
-
-		$aad['AttributeService'] = self::extractEndpoints($element, 'AttributeService', FALSE);
-		$aad['AssertionIDRequestService'] = self::extractEndpoints($element, 'AssertionIDRequestService', FALSE);
-		$aad['NameIDFormat'] = array_map(
-			array('SimpleSAML_Utilities', 'getDOMText'),
-			SimpleSAML_Utilities::getDOMChildren($element, 'NameIDFormat', '@md')
-		);
-
-		$this->attributeAuthorityDescriptors[] = $aad;
-	}
-
-
-	/**
-	 * Parse an Extensions element.
-	 *
-	 * @param DOMElement $element  The DOMElement which contains the Extensions element.
-	 */
-	private static function processExtensions(DOMElement $element) {
-
-		$ret = array(
-			'scopes' => array(),
-			'tags' => array(),
-		);
-
-		$extensions = SimpleSAML_Utilities::getDOMChildren($element, 'Extensions', '@md');
-		if (empty($extensions)) {
-			/* No extension element. */
-			return $ret;
-		}
-		$element = $extensions[0];
-
-		/* See: https://spaces.internet2.edu/display/SHIB/ShibbolethMetadataProfile */
-		foreach (SimpleSAML_Utilities::getDOMChildren($element, 'Scope', '@shibmd') as $scope) {
-			$scope = SimpleSAML_Utilities::getDOMText($scope);
-			if (!empty($scope)) {
-				$ret['scopes'][] = $scope;
+			/* Skip text nodes. */
+			if(!$child instanceof DOMElement) continue;
+			
+			if(SimpleSAML_Utilities::isDOMElementOfType($child, 'Scope', '@shibmd')) {
+				$text = SimpleSAML_Utilities::getDOMText($child);
+				if (!empty($text)) $this->scopes[] = $text;
 			}
-		}
+			
+			if(SimpleSAML_Utilities::isDOMElementOfType($child, 'Attribute', '@saml2')) {
 
-		foreach (SimpleSAML_Utilities::getDOMChildren($element, 'Attribute', '@saml2') as $attribute) {
-			$name = $attribute->getAttribute('Name');
-			$values = array_map(
-				array('SimpleSAML_Utilities', 'getDOMText'),
-				SimpleSAML_Utilities::getDOMChildren($attribute, 'AttributeValue', '@saml2')
-			);
+				if ($child->getAttribute('Name') === 'tags') {
 
-			if ($name === 'tags') {
-				foreach ($values as $tagname) {
-					if (!empty($tagname)) {
-						$ret['tags'][] = $tagname;
+					for($j = 0; $j < $child->childNodes->length; $j++) {
+
+						$attributevalue = $child->childNodes->item($j);
+						if(SimpleSAML_Utilities::isDOMElementOfType($attributevalue, 'AttributeValue', '@saml2')) {
+
+							$tagname = SimpleSAML_Utilities::getDOMText($attributevalue);
+#														echo 'attribute tags: ' . $tagname; exit;
+							if (!empty($tagname)) $this->tags[] = $tagname;
+						}
 					}
-				}
-			}
-		}
 
-		return $ret;
+				}
+			
+			}
+			
+			
+		}
 	}
 
 
@@ -1048,6 +1022,19 @@ class SimpleSAML_Metadata_SAMLParser {
 
 
 	/**
+	 * This function parses AssertionConsumerService elements.
+	 *
+	 * @param $element The element which should be parsed.
+	 * @return Associative array with the data we have extracted from the AssertionConsumerService element.
+	 */
+	private static function parseAssertionConsumerService($element) {
+		assert('$element instanceof DOMElement');
+
+		return self::parseGenericEndpoint($element, TRUE);
+	}
+
+
+	/**
 	 * This function parses AttributeConsumerService elements.
 	 */
 	private static function parseAttributeConsumerService($element, &$sp) {
@@ -1075,6 +1062,45 @@ class SimpleSAML_Metadata_SAMLParser {
 			$sp['attributes'][] = $attrname;
 		}	
 
+	}
+
+
+	/**
+	 * This function parses SingleLogoutService elements.
+	 *
+	 * @param $element The element which should be parsed.
+	 * @return Associative array with the data we have extracted from the SingleLogoutService element.
+	 */
+	private static function parseSingleLogoutService($element) {
+		assert('$element instanceof DOMElement');
+
+		return self::parseGenericEndpoint($element, FALSE);
+	}
+
+
+	/**
+	 * This function parses SingleSignOnService elements.
+	 *
+	 * @param $element The element which should be parsed.
+	 * @return Associative array with the data we have extracted from the SingleLogoutService element.
+	 */
+	private static function parseSingleSignOnService($element) {
+		assert('$element instanceof DOMElement');
+
+		return self::parseGenericEndpoint($element, FALSE);
+	}
+
+
+	/**
+	 * This function parses ArtifactResolutionService elements.
+	 *
+	 * @param $element The element which should be parsed.
+	 * @return Associative array with the data we have extracted from the ArtifactResolutionService element.
+	 */
+	private static function parseArtifactResolutionService($element) {
+		assert('$element instanceof DOMElement');
+
+		return self::parseGenericEndpoint($element, TRUE);
 	}
 
 
@@ -1131,7 +1157,7 @@ class SimpleSAML_Metadata_SAMLParser {
 			if(!$element->hasAttribute('index')) {
 				throw new Exception($name . ' missing required index attribute.');
 			}
-			$ep['index'] = (int)$element->getAttribute('index');
+			$ep['index'] = $element->getAttribute('index');
 
 			if($element->hasAttribute('isDefault')) {
 				$t = $element->getAttribute('isDefault');
@@ -1147,28 +1173,6 @@ class SimpleSAML_Metadata_SAMLParser {
 		}
 
 		return $ep;
-	}
-
-
-	/**
-	 * Extract generic endpoints.
-	 *
-	 * @param DOMElement $element  The element we should extract an endpoint list from.
-	 * @param string $name  The name of the elements.
-	 * @param bool $isIndexed  Whether the endpoints are indexed.
-	 * @return array  Array of parsed endpoints.
-	 */
-	private static function extractEndpoints(DOMElement $element, $name, $isIndexed) {
-		assert('is_bool($isIndexed)');
-		assert('is_string($name)');
-
-		$ret = array();
-		$endpoints = SimpleSAML_Utilities::getDOMChildren($element, $name, '@md');
-		foreach ($endpoints as $ep) {
-			$ret[] = self::parseGenericEndpoint($ep, $isIndexed);
-		}
-
-		return $ret;
 	}
 
 
@@ -1228,6 +1232,66 @@ class SimpleSAML_Metadata_SAMLParser {
 		$r['X509Certificate'] = SimpleSAML_Utilities::getDOMText($X509Certificate);
 
 		return $r;
+	}
+
+
+	/**
+	 * This function attempts to locate all endpoints which supports one of the given bindings.
+	 *
+	 */
+	private function getEndpoints($endpoints, $acceptedBindings = NULL) {
+
+		assert('$acceptedBindings === NULL || is_array($acceptedBindings)');
+
+		/* Filter the list of endpoints if $acceptedBindings !== NULL. */
+		if($acceptedBindings === NULL) return $endpoints;
+
+		$newEndpoints = array();
+		foreach($endpoints as $ep) {
+			/* Add it to the list of valid ACSs if it has one of the supported bindings. */
+			if(in_array($ep['Binding'], $acceptedBindings, TRUE)) {
+				$newEndpoints[] = $ep;
+			}
+		}
+		return $newEndpoints;
+	}
+
+
+	/**
+	 * This function attempts to locate the default endpoint which supports one of the given bindings.
+	 *
+	 * @param $endpoints Array with endpoints in the format returned by parseGenericEndpoint.
+	 * @param $acceptedBindings Array with the accepted bindings. If this is NULL, then we accept any binding.
+	 * @return The default endpoint which supports one of the bindings, or NULL if no endpoints supports
+	 *         one of the bindings.
+	 */
+	private function getDefaultEndpoint($endpoints, $acceptedBindings = NULL) {
+
+		$endpoints = $this->getEndpoints($endpoints, $acceptedBindings);
+
+		/* First we look for the endpoint with isDefault set to true. */
+		foreach($endpoints as $ep) {
+
+			if(array_key_exists('isDefault', $ep) && $ep['isDefault'] === TRUE) {
+				return $ep;
+			}
+		}
+
+		/* Then we look for the first endpoint without isDefault set to FALSE. */
+		foreach($endpoints as $ep) {
+
+			if(!array_key_exists('isDefault', $ep)) {
+				return $ep;
+			}
+		}
+
+		/* Then we take the first endpoint we find. */
+		if(count($endpoints) > 0) {
+			return $endpoints[0];
+		}
+
+		/* If we reach this point, then we don't have any endpoints with the correct binding. */
+		return NULL;
 	}
 
 

@@ -59,27 +59,24 @@ function driveProcessingChain($idp_metadata, $source, $sp_metadata, $sp_entityid
 
 // Get config object
 $config = SimpleSAML_Configuration::getInstance();
-$cA_config = SimpleSAML_Configuration::getConfig('module_consentAdmin.php');
-
-// If request is a logout request
-if(array_key_exists('logout', $_REQUEST)) {
-    $returnURL = $cA_config->getValue('returnURL');
-	SimpleSAML_Auth_Default::initLogout($returnURL);
-}
+$cA_config = $config->copyFromBase('consentAdmin', 'module_consentAdmin.php');
 
 $hashAttributes = $cA_config->getValue('attributes.hash');
-$authority = $cA_config->getValue('authority');
+
+// Get session object
+$session = SimpleSAML_Session::getInstance();
 
 /* Check if valid local session exists */
-$as = new SimpleSAML_Auth_Simple($authority);
-$as->requireAuth();
-
-// Get released attributes
-$attributes = $as->getAttributes();
+if (!isset($session) || !$session->isValid('saml2') ) {
+	// Set idpentity to force a specific IdP
+	SimpleSAML_Utilities::redirect('/' . $config->getBaseURL() . '/saml2/sp/initSSO.php',
+		array('RelayState'  => SimpleSAML_Utilities::selfURL())
+	);
+}
 
 // Get user ID
 $userid_attributename = $config->getValue('consent_userid', 'eduPersonPrincipalName');
-$userids = $attributes[$userid_attributename];
+$userids = ($session->getAttribute($userid_attributename));
 		
 if (empty($userids)) {
 	throw new Exception('Could not generate useridentifier for storing consent. Attribute [' .
@@ -93,6 +90,9 @@ $metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
 
 // Get all SP metadata
 $all_sp_metadata = $metadata->getList('saml20-sp-remote');
+
+// Get released attributes
+$attributes = $session->getAttributes();
 
 // Parse action, if any
 $action = null;
@@ -109,8 +109,6 @@ SimpleSAML_Logger::critical('consentAdmin: sp: ' .$sp_entityid.' action: '.$acti
 /*
  * Get IdP id and metadata
  */
-$session = SimpleSAML_Session::getInstance();
-
 if($session->getIdP() != null) {
 	/*
 	 * From a remote idp (as bridge)
@@ -124,14 +122,7 @@ if($session->getIdP() != null) {
 	$idp_entityid = $metadata->getMetaDataCurrentEntityID('saml20-idp-hosted');
 	$idp_metadata = $metadata->getMetaData($idp_entityid, 'saml20-idp-hosted');
 }
-
-// Remove services, whitch have consent disabled
-foreach($idp_metadata['consent.disable'] AS $disable) {
-    if(array_key_exists($disable, $all_sp_metadata)) {
-        unset($all_sp_metadata[$disable]);
-    }
-}
-
+ 
 SimpleSAML_Logger::info('consentAdmin: '.$idp_entityid);
 
 // Calc correct source
@@ -155,7 +146,7 @@ if ($action != null && $sp_entityid != null) {
 	if($action == 'true') {
 		$isStored = $consent_storage->saveConsent($hashed_user_id, $targeted_id, $attribute_hash);
 		if($isStored) {
-			$res = "added";
+			$res =  "added";
 		} else {
 			$res = "updated";
 		}
@@ -188,6 +179,7 @@ $user_consent = array();
 foreach ($user_consent_list as $c) {
 	$user_consent[$c[0]]=$c[1];
 }
+
 
 $template_sp_content = array();
 
@@ -244,7 +236,10 @@ foreach ($all_sp_metadata as $sp_entityid => $sp_values) {
 	);
 }
 
+$relaystate = $cA_config->getValue('relaystate');
+
 $et->data['header'] = 'Consent Administration';
+$et->data['logout'] = '<p>[ <a href="/' . $config->getBaseURL() . 'saml2/sp/initSLO.php?RelayState='. $relaystate .'">Logout</a> ]';
 $et->data['spList'] = $sp_list;
 $et->data['showDescription'] = $cA_config->getValue('showDescription');
 $et->show();
