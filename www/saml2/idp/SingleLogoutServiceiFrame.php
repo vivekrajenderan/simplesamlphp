@@ -110,7 +110,7 @@ function updateslostatus() {
 		}
 
 		try {
-			$spMetadata = $metadata->getMetaDataConfig($spentityid, 'saml20-sp-remote');
+			$spmetadata = $metadata->getMetaData($spentityid, 'saml20-sp-remote');
 		} catch (Exception $e) {
 			/*
 			 * For some reason, the metadata for this SP is no longer available. Most
@@ -121,8 +121,7 @@ function updateslostatus() {
 			continue;
 		}
 
-		$singleLogoutService = $spMetadata->getDefaultEndpoint('SingleLogoutService', array(SAML2_Const::BINDING_HTTP_REDIRECT), NULL);
-		if ($singleLogoutService === NULL) {
+		if (!isset($spmetadata['SingleLogoutService'])) {
 			/* No logout endpoint. */
 			$listofsps[] = $spentityid;
 			continue;
@@ -232,26 +231,7 @@ if (isset($_REQUEST['SAMLRequest'])) {
 	} catch(Exception $exception) {
 		SimpleSAML_Utilities::fatalError($session->getTrackID(), 'LOGOUTREQUEST', $exception);
 	}
-
-	/* Log a warning if the NameID in the LogoutRequest isn't the one we assigned to the SP. */
-	$requestNameId = $logoutrequest->getNameId();
-	ksort($requestNameId);
-	$sessionNameId = $session->getSessionNameId('saml20-sp-remote', $spEntityId);
-	ksort($sessionNameId);
-	if ($sessionNameId !== NULL && $requestNameId !== $sessionNameId) {
-		SimpleSAML_Logger::warning('Wrong NameID in LogoutRequest from ' .
-			var_export($spEntityId, TRUE) . '.');
-	}
-
-	/* Log a warning if the SessionIndex in the LogoutRequest isn't correct. */
-	$requestSessionIndex = $logoutrequest->getSessionIndex();
-	$sessionSessionIndex = $session->getSessionIndex();
-	if ($requestSessionIndex !== $sessionSessionIndex) {
-		SimpleSAML_Logger::warning('Wrong SessionIndex in LogoutRequest from ' .
-			var_export($spEntityId, TRUE) . '.');
-	}
-
-
+	
 	// Extract some parameters from the logout request
 	#$requestid = $logoutrequest->getRequestID();
 	$requester = $logoutrequest->getIssuer();
@@ -340,13 +320,6 @@ foreach ($listofsps AS $spentityid) {
 		$url = $httpredirect->getRedirectURL($lr);
 
 		$sparray[$spentityid] = array('url' => $url, 'name' => $name);
-
-		/* Add the SP logout request information to the session so that we can check it later. */
-		$requestInfo = array(
-			'ID' => $lr->getId(),
-			'RelayState' => $lr->getRelayState(),
-		);
-		$session->setData('slo-request-info', $spentityid, $requestInfo, 15*60);
 
 	} catch (Exception $e) {
 		$sparrayNoLogout[$spentityid] = array('name' => $name);

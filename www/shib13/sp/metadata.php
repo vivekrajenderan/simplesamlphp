@@ -24,8 +24,6 @@ try {
 	
 
 	$metaArray = array(
-		'metadata-set' => 'shib13-sp-remote',
-		'entityid' => $spentityid,
 		'AssertionConsumerService' => $metadata->getGenerated('AssertionConsumerService', 'shib13-sp-hosted'),
 	);
 

@@ -19,30 +19,38 @@ class SimpleSAML_Auth_Default {
 	 * This function never returns.
 	 *
 	 * @param string $authId  The identifier of the authentication source.
-	 * @param string|array $return  The URL or function we should direct the user to after authentication.
+	 * @param string $returnURL  The URL we should direct the user to after authentication.
 	 * @param string|NULL $errorURL  The URL we should direct the user to after failed authentication.
 	 *                               Can be NULL, in which case a standard error page will be shown.
-	 * @param array $params  Extra information about the login. Different authentication requestors may
-	 *                       provide different information. Optional, will default to an empty array.
+	 * @param array $hints  Extra information about the login. Different authentication requestors may
+	 *                      provide different information. Optional, will default to an empty array.
 	 */
-	public static function initLogin($authId, $return, $errorURL = NULL, array $params = array()) {
+	public static function initLogin($authId, $returnURL, $errorURL = NULL, $hints = array()) {
 		assert('is_string($authId)');
-		assert('is_string($return) || is_array($return)');
+		assert('is_string($returnURL)');
 		assert('is_string($errorURL) || is_null($errorURL)');
+		assert('is_array($hints)');
 
-		$state = array_merge($params, array(
+		$state = array(
 			'SimpleSAML_Auth_Default.id' => $authId,
-			'SimpleSAML_Auth_Default.Return' => $return,
+			'SimpleSAML_Auth_Default.ReturnURL' => $returnURL,
 			'SimpleSAML_Auth_Default.ErrorURL' => $errorURL,
 			'LoginCompletedHandler' => array(get_class(), 'loginCompleted'),
 			'LogoutCallback' => array(get_class(), 'logoutCallback'),
 			'LogoutCallbackState' => array(
 				'SimpleSAML_Auth_Default.logoutSource' => $authId,
-			),
-		));
+				),
+			);
 
-		if (is_string($return)) {
-			$state['SimpleSAML_Auth_Default.ReturnURL'] = $return;
+		if (array_key_exists('SPMetadata', $hints)) {
+			$state['SPMetadata'] = $hints['SPMetadata'];
+		}
+		if (array_key_exists('IdPMetadata', $hints)) {
+			$state['IdPMetadata'] = $hints['IdPMetadata'];
+		}
+
+		if (array_key_exists(SimpleSAML_Auth_State::RESTART, $hints)) {
+			$state[SimpleSAML_Auth_State::RESTART] = $hints[SimpleSAML_Auth_State::RESTART];
 		}
 
 		if ($errorURL !== NULL) {
@@ -73,12 +81,12 @@ class SimpleSAML_Auth_Default {
 	 */
 	public static function loginCompleted($state) {
 		assert('is_array($state)');
-		assert('array_key_exists("SimpleSAML_Auth_Default.Return", $state)');
+		assert('array_key_exists("SimpleSAML_Auth_Default.ReturnURL", $state)');
 		assert('array_key_exists("SimpleSAML_Auth_Default.id", $state)');
 		assert('array_key_exists("Attributes", $state)');
 		assert('!array_key_exists("LogoutState", $state) || is_array($state["LogoutState"])');
 
-		$return = $state['SimpleSAML_Auth_Default.Return'];
+		$returnURL = $state['SimpleSAML_Auth_Default.ReturnURL'];
 
 		/* Save session state. */
 		$session = SimpleSAML_Session::getInstance();
@@ -98,13 +106,8 @@ class SimpleSAML_Auth_Default {
 			$session->setIdP(NULL);
 		}
 
-		if (is_string($return)) {
-			/* Redirect... */
-			SimpleSAML_Utilities::redirect($return);
-		} else {
-			call_user_func($return, $state);
-			assert('FALSE');
-		}
+		/* Redirect... */
+		SimpleSAML_Utilities::redirect($returnURL);
 	}
 
 

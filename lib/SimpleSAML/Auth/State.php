@@ -117,8 +117,6 @@ class SimpleSAML_Auth_State {
 		$session = SimpleSAML_Session::getInstance();
 		$session->setData('SimpleSAML_Auth_State', $id, $serializedState, 60*60);
 
-		SimpleSAML_Logger::debug('Saved state: ' . var_export($return, TRUE));
-
 		return $return;
 	}
 
@@ -137,8 +135,6 @@ class SimpleSAML_Auth_State {
 	public static function loadState($id, $stage) {
 		assert('is_string($id)');
 		assert('is_string($stage)');
-
-		SimpleSAML_Logger::debug('Loading state: ' . var_export($id, TRUE));
 
 		$tmp = explode(':', $id, 2);
 		$id = $tmp[0];
@@ -204,8 +200,6 @@ class SimpleSAML_Auth_State {
 			return;
 		}
 
-		SimpleSAML_Logger::debug('Deleting state: ' . var_export($state[self::ID], TRUE));
-
 		$session = SimpleSAML_Session::getInstance();
 		$session->deleteData('SimpleSAML_Auth_State', $state[self::ID]);
 	}
@@ -251,16 +245,13 @@ class SimpleSAML_Auth_State {
 	 * Retrieve an exception state.
 	 *
 	 * @param string|NULL $id  The exception id. Can be NULL, in which case it will be retrieved from the request.
-	 * @return array|NULL  The state array with the exception, or NULL if no exception was thrown.
+	 * @return array  The state array with the exception.
 	 */
 	public static function loadExceptionState($id = NULL) {
 		assert('is_string($id) || is_null($id)');
 
 		if ($id === NULL) {
-			if (!array_key_exists(self::EXCEPTION_PARAM, $_REQUEST)) {
-				/* No exception. */
-				return NULL;
-			}
+			assert('array_key_exists(self::EXCEPTION_PARAM, $_REQUEST)');
 			$id = $_REQUEST[self::EXCEPTION_PARAM];
 		}
 

@@ -869,15 +869,14 @@ class SimpleSAML_Utilities {
 	 *
 	 * This function accepts the same shortcuts for namespaces as the isDOMElementOfType function.
 	 *
-	 * @param DOMElement $element  The element we should look in.
-	 * @param string $localName  The name the element should have.
-	 * @param string $namespaceURI  The namespace the element should have.
-	 * @return array  Array with the matching elements in the order they are found. An empty array is
+	 * @param $element The element we should look in.
+	 * @param $localName The name the element should have.
+	 * @param $namespaceURI The namespace the element should have.
+	 * @return Array with the matching elements in the order they are found. An empty array is
 	 *         returned if no elements match.
 	 */
-	public static function getDOMChildren(DOMElement $element, $localName, $namespaceURI) {
-		assert('is_string($localName)');
-		assert('is_string($namespaceURI)');
+	public static function getDOMChildren($element, $localName, $namespaceURI) {
+		assert('$element instanceof DOMElement');
 
 		$ret = array();
 
@@ -1771,7 +1770,7 @@ class SimpleSAML_Utilities {
 			$returnTo = SimpleSAML_Utilities::selfURL();
 		}
 
-		return SimpleSAML_Module::getModuleURL('core/login-admin.php', array('ReturnTo' => $returnTo));
+		return SimpleSAML_Module::getModuleURL('core/login-admin.php?ReturnTo=' . urlencode($returnTo));
 	}
 
 
@@ -1845,7 +1844,10 @@ class SimpleSAML_Utilities {
 		$session = SimpleSAML_Session::getInstance();
 		$session->setData('core_postdatalink', $id, $postData);
 
-		return SimpleSAML_Module::getModuleURL('core/postredirect.php', array('RedirId' => $id));
+		return SimpleSAML_Utilities::addURLParameter(
+			SimpleSAML_Module::getModuleURL('core/postredirect.php'),
+			array('RedirId' => $id)
+			);
 	}
 
 
@@ -2121,57 +2123,6 @@ class SimpleSAML_Utilities {
 
 
 	/**
-	 * Find the default endpoint in an endpoint array.
-	 *
-	 * @param array $endpoints  Array with endpoints.
-	 * @param array $bindings  Array with acceptable bindings. Can be NULL if any binding is allowed.
-	 * @return  array|NULL  The default endpoint, or NULL if no acceptable endpoints are used.
-	 */
-	public static function getDefaultEndpoint(array $endpoints, array $bindings = NULL) {
-
-		$firstNotFalse = NULL;
-		$firstAllowed = NULL;
-
-		/* Look through the endpoint list for acceptable endpoints. */
-		foreach ($endpoints as $i => $ep) {
-			if ($bindings !== NULL && !in_array($ep['Binding'], $bindings, TRUE)) {
-				/* Unsupported binding. Skip it. */
-				continue;
-			}
-
-			if (array_key_exists('isDefault', $ep)) {
-				if ($ep['isDefault'] === TRUE) {
-					/* This is the first endpoitn with isDefault set to TRUE. */
-					return $ep;
-				}
-				/* isDefault is set to FALSE, but the endpoint is still useable as a last resort. */
-				if ($firstAllowed === NULL) {
-					/* This is the first endpoint that we can use. */
-					$firstAllowed = $ep;
-				}
-			} else {
-				if ($firstNotFalse === NULL) {
-					/* This is the first endpoint without isDefault set. */
-					$firstNotFalse = $ep;
-				}
-			}
-		}
-
-		if ($firstNotFalse !== NULL) {
-			/* We have an endpoint without isDefault set to FALSE. */
-			return $firstNotFalse;
-		}
-
-		/*
-		 * $firstAllowed either contains the first endpoint we can use, or it
-		 * contains NULL if we cannot use any of the endpoints. Either way we
-		 * return the value of it.
-		 */
-		return $firstAllowed;
-	}
-
-
-	/**
 	 * Retrieve the authority for the given IdP metadata.
 	 *
 	 * This function provides backwards-compatibility with
@@ -2202,29 +2153,6 @@ class SimpleSAML_Utilities {
 		}
 		throw new SimpleSAML_Error_Exception('You need to set \'authority\' in the metadata for ' .
 			var_export($idpmetadata['entityid'], TRUE) . '.');
-	}
-
-
-	/**
-	 * Check for session cookie, and show missing-cookie page if it is missing.
-	 *
-	 * @param string|NULL $retryURL  The URL the user should access to retry the operation.
-	 */
-	public static function checkCookie($retryURL = NULL) {
-		assert('is_string($retryURL) || is_null($retryURL)');
-
-		$session = SimpleSAML_Session::getInstance();
-		if ($session->hasSessionCookie()) {
-			return;
-		}
-
-		/* We didn't have a session cookie. Redirect to the no-cookie page. */
-
-		$url = SimpleSAML_Module::getModuleURL('core/no_cookie.php');
-		if ($retryURL !== NULL) {
-			$url = SimpleSAML_Utilities::addURLParameter($url, array('retryURL' => $retryURL));
-		}
-		SimpleSAML_Utilities::redirect($url);
 	}
 
 }

@@ -22,9 +22,6 @@ if(get_magic_quotes_gpc()) {
 /* Initialize the autoloader. */
 require_once(dirname(dirname(__FILE__)) . '/lib/_autoload.php');
 
-/* Enable assertion handler for all pages. */
-SimpleSAML_Error_Assertion::installHandler();
-
 /* Show error page on unhandled exceptions. */
 function SimpleSAML_exception_handler(Exception $exception) {
 	$e = new SimpleSAML_Error_Error('UNHANDLEDEXCEPTION', $exception);
@@ -55,6 +52,17 @@ function SimpleSAML_error_handler($errno, $errstr, $errfile = NULL, $errline = 0
 	return FALSE;
 }
 set_error_handler('SimpleSAML_error_handler');
+
+
+$path_extra = dirname(dirname(__FILE__)) . '/lib';
+
+
+/** + start modify include path + */
+$path = ini_get('include_path');
+$path = $path_extra . PATH_SEPARATOR . $path;
+ini_set('include_path', $path);
+/** + end modify include path + */
+
 
 /**
  * Class which should print a warning every time a reference to $SIMPLESAML_INCPREFIX is made.

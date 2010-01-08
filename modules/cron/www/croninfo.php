@@ -28,15 +28,15 @@ $def = array(
 $urls = array();
 foreach ($tags AS $tag) {
 	$urls[] = array(
-		'href' => SimpleSAML_Module::getModuleURL('cron/cron.php', array('key' => $key, 'tag' => $tag)),
-		'tag' => $tag,
+		'href' => SimpleSAML_Module::getModuleURL('cron/cron.php?key=' . $key . '&amp;tag=' . $tag),
+		'title' => 'Run cron [' . $tag . ']',
 		'int' => (array_key_exists($tag, $def) ? $def[$tag] : $def['default']),
 	);
 }
 
 
 
-$t = new SimpleSAML_XHTML_Template($config, 'cron:croninfo-tpl.php', 'cron:cron');
+$t = new SimpleSAML_XHTML_Template($config, 'cron:croninfo-tpl.php');
 $t->data['urls'] = $urls;
 $t->show();
 

@@ -52,8 +52,8 @@ class SimpleSAML_Error_Assertion extends SimpleSAML_Error_Exception {
 	 * disabled.
 	 */
 	public static function installHandler() {
-
 		assert_options(ASSERT_WARNING,    0);
+		assert_options(ASSERT_BAIL,       0);
 		assert_options(ASSERT_QUIET_EVAL, 0);
 		assert_options(ASSERT_CALLBACK,   array('SimpleSAML_Error_Assertion', 'onAssertion'));
 	}
@@ -71,12 +71,10 @@ class SimpleSAML_Error_Assertion extends SimpleSAML_Error_Exception {
 	public static function onAssertion($file, $line, $message) {
 
 		if(!empty($message)) {
-			$exception = new self($message);
+			throw new self($message);
 		} else {
-			$exception = new self();
+			throw new self();
 		}
-
-		$exception->logError();
 	}
 
 }
