@@ -43,14 +43,14 @@ if(array_key_exists('files', $this->data)) {
 		foreach($notices as $i) {
 			$type = $i['type'];
 			if($type === 'error') {
-				$image = 'silk/exclamation.png';
+				$image = 'bomb.png';
 			} elseif($type === 'warning') {
-				$image = 'silk/error.png';
+				$image = 'caution.png';
 			}
 			$imageUrl = '/' . $this->data['baseurlpath'] . 'resources/icons/' . $image;
 
 			echo('<p>');
-			echo('<img style="display: inline; float: left;" src="' . htmlspecialchars($imageUrl) . '" alt="' . htmlspecialchars($type) . '" />');
+			echo('<img style="display: inline; float: left; width: 1.7em; height: 1.7em;" src="' . htmlspecialchars($imageUrl) . '" alt="' . htmlspecialchars($type) . '" />');
 			echo(htmlspecialchars($i['message']));
 			echo('</p>');
 		}

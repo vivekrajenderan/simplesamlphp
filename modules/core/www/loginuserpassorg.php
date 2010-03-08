@@ -14,12 +14,9 @@ if (!array_key_exists('AuthState', $_REQUEST)) {
 	throw new SimpleSAML_Error_BadRequest('Missing AuthState parameter.');
 }
 $authStateId = $_REQUEST['AuthState'];
-$organizations = sspmod_core_Auth_UserPassOrgBase::listOrganizations($authStateId);
 
 if (array_key_exists('username', $_REQUEST)) {
 	$username = $_REQUEST['username'];
-} elseif (isset($state['core:username'])) {
-	$username = (string)$state['core:username'];
 } else {
 	$username = '';
 }
@@ -32,31 +29,26 @@ if (array_key_exists('password', $_REQUEST)) {
 
 if (array_key_exists('organization', $_REQUEST)) {
 	$organization = $_REQUEST['organization'];
-} elseif (isset($state['core:organization'])) {
-	$organization = (string)$state['core:organization'];
 } else {
-	$organization = '';
+	$organization = NULL;
 }
 
-$errorCode = NULL;
-if ($organizations === NULL || !empty($organization)) {
-	if (!empty($username) && !empty($password)) {
-		$errorCode = sspmod_core_Auth_UserPassOrgBase::handleLogin($authStateId, $username, $password, $organization);
-	}
+if (!empty($organization) && (!empty($username) || !empty($password))) {
+	/* Organization and either username or password set - attempt to log in. */
+	$errorCode = sspmod_core_Auth_UserPassOrgBase::handleLogin($authStateId, $username, $password, $organization);
+} else {
+	$errorCode = NULL;
 }
+
+$organizations = sspmod_core_Auth_UserPassOrgBase::listOrganizations($authStateId);
 
 $globalConfig = SimpleSAML_Configuration::getInstance();
 $t = new SimpleSAML_XHTML_Template($globalConfig, 'core:loginuserpass.php');
 $t->data['stateparams'] = array('AuthState' => $authStateId);
+$t->data['selectedOrg'] = $organization;
+$t->data['organizations'] = $organizations;
 $t->data['username'] = $username;
-$t->data['forceUsername'] = FALSE;
 $t->data['errorcode'] = $errorCode;
-
-if ($organizations !== NULL) {
-	$t->data['selectedOrg'] = $organization;
-	$t->data['organizations'] = $organizations;
-}
-
 $t->show();
 exit();
 

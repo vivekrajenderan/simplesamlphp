@@ -1,26 +1,25 @@
 <?php
-/**
- * SAML 1.1 IdP configuration for simpleSAMLphp.
+/* 
+ * Shibboleth 1.3 IdP Meta data for simpleSAMLphp
  *
- * See: https://rnd.feide.no/content/idp-hosted-metadata-reference
+ *
+ *
  */
 
-$metadata['__DYNAMIC:1__'] = array(
 
-	/*
-	 * The hostname of the server (VHOST) that will use this SAML entity.
-	 *
-	 * Can be '__DEFAULT__', to use this entry by default.
-	 */
-	'host' => '__DEFAULT__',
+$metadata = array(
+	'__DYNAMIC:1__'	=> array(
 
-	/* X.509 key and certificate. Relative to the cert directory. */
-	'privatekey' => 'server.pem',
-	'certificate' => 'server.crt',
-
-	/*
-	 * Authentication source to use. Must be one that is configured in
-	 * 'config/authsources.php'.
-	 */
-	'auth' => 'example-userpass',
+		'host'							=>	'__DEFAULT__',
+		'audience'						=> 'urn:mace:feide:shiblab',
+		
+		// X.509 key and certificate. Relative to the cert directory.
+		'privatekey'		=>	'server.pem',
+		'certificate'		=>	'server.crt',
+		
+		// Authentication plugin to use. login.php is the default one that uses LDAP.
+		'auth'				=>	'auth/login.php'
+	)
 );
+
+?>

@@ -16,18 +16,11 @@ function portal_hook_htmlinject(&$hookinfo) {
 
 #	echo('<pre>');	print_r($links); exit;
 
-	$portalConfig = SimpleSAML_Configuration::getOptionalConfig('module_portal.php');
+	$portalConfig = SimpleSAML_Configuration::getConfig('module_portal.php');
 	
-	$allLinks = array();
-	foreach($links AS $ls) {
-		$allLinks = array_merge($allLinks, $ls);
-	}
 
-	$portal = new sspmod_portal_Portal($allLinks,
-		$portalConfig->getValue('pagesets', array(
-			array('frontpage_welcome', 'frontpage_config', 'frontpage_auth', 'frontpage_federation'),
-		)) 
-	);
+
+	$portal = new sspmod_portal_Portal($links['links'], $portalConfig->getValue('pagesets') );
 	
 	if (!$portal->isPortalized($hookinfo['page'])) return;
 
@@ -38,11 +31,11 @@ function portal_hook_htmlinject(&$hookinfo) {
 	$hookinfo['jquery']['version'] = '1.6';
 
 	// Header
-	$hookinfo['pre'][]  = '<div id="portalmenu" class="ui-tabs ui-widget ui-widget-content ui-corner-all">' . 
+	$hookinfo['pre'][0]  = '<div id="portalmenu" class="ui-tabs ui-widget ui-widget-content ui-corner-all">' . 
 		$portal->getMenu($hookinfo['page']) . 
 		'<div id="portalcontent" class="ui-tabs-panel ui-widget-content ui-corner-bottom">';
 
 	// Footer
-	$hookinfo['post'][] = '</div></div>';
+	$hookinfo['post'][0] = '</div></div>';
 	
 }

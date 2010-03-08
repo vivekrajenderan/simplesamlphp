@@ -1,5 +1,6 @@
 <?php
 	$this->data['header'] = $this->t('{consent:consent:noconsent_title}');;
+	$this->data['icon'] = 'bomb_l.png';
 	$this->includeAtTemplateBase('includes/header.php');
 ?>
 

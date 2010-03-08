@@ -1,14 +1,6 @@
 <?php
 
-/*
- * Disable strict error reporting, since the OpenID library
- * used is PHP4-compatible, and not PHP5 strict-standards compatible.
- */
-SimpleSAML_Utilities::maskErrors(E_STRICT);
-
-/* Add the OpenID library search path. */
-set_include_path(get_include_path() . PATH_SEPARATOR . dirname(dirname(dirname(dirname(__FILE__)))) . '/lib');
-
+#require_once('../../_include.php');
 require_once('Auth/OpenID/SReg.php');
 require_once('Auth/OpenID/Server.php');
 require_once('Auth/OpenID/ServerRequest.php');
@@ -25,27 +17,63 @@ $state = SimpleSAML_Auth_State::loadState($_REQUEST['AuthState'], 'openid:state'
 $authState = $_REQUEST['AuthState'];
 $authSource = SimpleSAML_Auth_Source::getById($state['openid:AuthId']);
 if ($authSource === NULL) {
-	throw new SimpleSAML_Error_BadRequest('Invalid AuthId \'' . $state['openid:AuthId'] . '\' - not found.');
+	throw new SimpleSAML_Error_BadRequest('Invalid AuthId \'' . $state['feide:AuthId'] . '\' - not found.');
 }
 
 
 function displayError($message) {
-	global $authState;
+    $error = $message;
 
 	$config = SimpleSAML_Configuration::getInstance();
 	$t = new SimpleSAML_XHTML_Template($config, 'openid:consumer.php', 'openid');
-	$t->data['error'] = $message;
-	$t->data['AuthState'] = $authState;
+	$t->data['msg'] = $msg;
+	$t->data['error'] = $error;
 	$t->show();
-	exit(0);
 }
 
 
+function &getStore() {
+    /**
+     * This is where the example will store its OpenID information.
+     * You should change this path if you want the example store to be
+     * created elsewhere.  After you're done playing with the example
+     * script, you'll have to remove this directory manually.
+     */
+    $store_path = "/tmp/_php_consumer_test";
 
-function getConsumer() {
-	global $state;
-	$store = new sspmod_openid_StateStore($state);
-	return new Auth_OpenID_Consumer($store);
+    if (!file_exists($store_path) &&
+        !mkdir($store_path)) {
+        print "Could not create the FileStore directory '$store_path'. ".
+            " Please check the effective permissions.";
+        exit(0);
+    }
+
+    return new Auth_OpenID_FileStore($store_path);
+}
+
+function &getConsumer() {
+    /**
+     * Create a consumer object using the store object created
+     * earlier.
+     */
+    $store = getStore();
+    return new Auth_OpenID_Consumer($store);
+}
+
+function getOpenIDURL() {
+    // Render a default page if we got a submission without an openid
+    // value.
+    if (empty($_GET['openid_url'])) {
+        $error = "Expected an OpenID URL.";
+
+		$config = SimpleSAML_Configuration::getInstance();
+		$t = new SimpleSAML_XHTML_Template($config, 'openid:consumer.php', 'openid');
+		$t->data['msg'] = $msg;
+		$t->data['error'] = $error;
+		$t->show();
+    }
+
+    return $_GET['openid_url'];
 }
 
 function getReturnTo() {
@@ -60,9 +88,7 @@ function getTrustRoot() {
 }
 
 function run_try_auth() {
-    global $authSource;
-
-    $openid = $_GET['openid_url'];
+    $openid = getOpenIDURL();
     $consumer = getConsumer();
 
     // Begin the OpenID authentication process.
@@ -74,8 +100,8 @@ function run_try_auth() {
     }
 
     $sreg_request = Auth_OpenID_SRegRequest::build(
-			$authSource->getRequiredAttributes(),
-			$authSource->getOptionalAttributes());
+			array('nickname'), // Required
+			array('fullname', 'email')); // Optional
 
     if ($sreg_request) {
         $auth_request->addExtension($sreg_request);
@@ -120,11 +146,9 @@ function run_finish_auth() {
 	
 		$consumer = getConsumer();
 	
-		$return_to = SimpleSAML_Utilities::selfURL();
-
 		// Complete the authentication process using the server's
 		// response.
-		$response = $consumer->complete($return_to);
+		$response = $consumer->complete();
 	
 		// Check the response status.
 		if ($response->status == Auth_OpenID_CANCEL) {
@@ -176,7 +200,7 @@ function run_finish_auth() {
 
 if (array_key_exists('returned', $_GET)) {
 	run_finish_auth();
-} elseif (!empty($_GET['openid_url'])) {
+} elseif(array_key_exists('openid_url', $_GET)) {
 	run_try_auth();
 } else {
 	$config = SimpleSAML_Configuration::getInstance();

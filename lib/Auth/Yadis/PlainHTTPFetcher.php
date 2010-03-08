@@ -10,8 +10,8 @@
  *
  * @package OpenID
  * @author JanRain, Inc. <openid@janrain.com>
- * @copyright 2005-2008 Janrain, Inc.
- * @license http://www.apache.org/licenses/LICENSE-2.0 Apache
+ * @copyright 2005 Janrain, Inc.
+ * @license http://www.gnu.org/copyleft/lesser.html LGPL
  */
 
 /**
@@ -36,7 +36,11 @@ class Auth_Yadis_PlainHTTPFetcher extends Auth_Yadis_HTTPFetcher {
 
     function get($url, $extra_headers = null)
     {
-        if (!$this->canFetchURL($url)) {
+        if ($this->isHTTPS($url) && !$this->supportsSSL()) {
+            return null;
+        }
+
+        if (!$this->allowedURL($url)) {
             return null;
         }
 
@@ -63,17 +67,13 @@ class Auth_Yadis_PlainHTTPFetcher extends Auth_Yadis_HTTPFetcher {
                 }
             }
 
-            if (!array_key_exists('path', $parts)) {
-                $parts['path'] = '/';
-            }
-
             $host = $parts['host'];
 
             if ($parts['scheme'] == 'https') {
                 $host = 'ssl://' . $host;
             }
 
-            $user_agent = Auth_OpenID_USER_AGENT;
+            $user_agent = "PHP Yadis Library Fetcher";
 
             $headers = array(
                              "GET ".$parts['path'].
@@ -105,11 +105,8 @@ class Auth_Yadis_PlainHTTPFetcher extends Auth_Yadis_HTTPFetcher {
             fputs($sock, implode("\r\n", $headers) . "\r\n\r\n");
 
             $data = "";
-            $kilobytes = 0;
-            while (!feof($sock) &&
-                   $kilobytes < Auth_OpenID_FETCHER_MAX_RESPONSE_KB ) {
+            while (!feof($sock)) {
                 $data .= fgets($sock, 1024);
-                $kilobytes += 1;
             }
 
             fclose($sock);
@@ -135,12 +132,8 @@ class Auth_Yadis_PlainHTTPFetcher extends Auth_Yadis_HTTPFetcher {
 
         foreach ($headers as $header) {
             if (preg_match("/:/", $header)) {
-                $parts = explode(": ", $header, 2);
-
-                if (count($parts) == 2) {
-                    list($name, $value) = $parts;
-                    $new_headers[$name] = $value;
-                }
+                list($name, $value) = explode(": ", $header, 2);
+                $new_headers[$name] = $value;
             }
 
         }
@@ -150,7 +143,11 @@ class Auth_Yadis_PlainHTTPFetcher extends Auth_Yadis_HTTPFetcher {
 
     function post($url, $body, $extra_headers = null)
     {
-        if (!$this->canFetchURL($url)) {
+        if ($this->isHTTPS($url) && !$this->supportsSSL()) {
+            return null;
+        }
+
+        if (!$this->allowedURL($url)) {
             return null;
         }
 

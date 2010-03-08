@@ -1,14 +1,12 @@
+
+
 <?php
 
-
-
-if(!empty($this->data['htmlinject']['htmlContentPost'])) {
-	foreach($this->data['htmlinject']['htmlContentPost'] AS $c) {
+if(array_key_exists('htmlContentPost', $this->data)) {
+	foreach(array_reverse($this->data['htmlContentPost']) AS $c) {
 		echo $c;
 	}
 }
-
-
 ?>
 
 
@@ -16,7 +14,7 @@ if(!empty($this->data['htmlinject']['htmlContentPost'])) {
 		<hr />
 
 		<img src="/<?php echo $this->data['baseurlpath']; ?>resources/icons/ssplogo-fish-small.png" alt="Small fish logo" style="float: right" />		
-		Copyright &copy; 2007-2010 <a href="http://rnd.feide.no/">Feide RnD</a>
+		Copyright &copy; 2007-2009 <a href="http://rnd.feide.no/">Feide RnD</a>
 		
 		<br style="clear: right" />
 	

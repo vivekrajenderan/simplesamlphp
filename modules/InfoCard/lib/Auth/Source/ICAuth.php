@@ -45,15 +45,13 @@ class sspmod_InfoCard_Auth_Source_ICAuth extends SimpleSAML_Auth_Source {
 SimpleSAML_Logger::debug('ENTRA en icauth');
 		assert('is_string($authStateId)');		
 
-		$config = SimpleSAML_Configuration::getInstance();
-		$autoconfig = $config->copyFromBase('logininfocard', 'config-login-infocard.php');
+		$autoconfig = SimpleSAML_Configuration::getConfig('config-login-infocard.php');
 		$idp_key = $autoconfig->getValue('idp_key');
-		$idp_pass = $autoconfig->getValue('idp_key_pass', NULL);
 		$sts_crt = $autoconfig->getValue('sts_crt');
 		$Infocard =   $autoconfig->getValue('InfoCard');
 
 		$infocard = new sspmod_InfoCard_RP_InfoCard();
-		$infocard->addIDPKey($idp_key, $idp_pass);
+		$infocard->addIDPKey($idp_key);
 		$infocard->addSTSCertificate($sts_crt);	
 		if (!$xmlToken)     
 			SimpleSAML_Logger::debug("XMLtoken: ".$xmlToken);

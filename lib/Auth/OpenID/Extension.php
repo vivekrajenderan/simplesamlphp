@@ -41,12 +41,8 @@ class Auth_OpenID_Extension {
      */
     function toMessage(&$message)
     {
-        $implicit = $message->isOpenID1();
-        $added = $message->namespaces->addAlias($this->ns_uri,
-                                                $this->ns_alias,
-                                                $implicit);
-
-        if ($added === null) {
+        if ($message->namespaces->addAlias($this->ns_uri,
+                                           $this->ns_alias) === null) {
             if ($message->namespaces->getAlias($this->ns_uri) !=
                 $this->ns_alias) {
                 return null;

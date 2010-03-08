@@ -8,6 +8,7 @@ class sspmod_metarefresh_MetaLoader {
 
 
 	private $metadata;
+
 	private $expire;
 
 	/**
@@ -17,7 +18,8 @@ class sspmod_metarefresh_MetaLoader {
 	 * @param 
 	 */
 	public function __construct($expire = NULL) {
-		$this->expire = $expire;	
+		$this->expire = $expire;
+		
 		$this->metadata = array();
 	}
 
@@ -27,13 +29,8 @@ class sspmod_metarefresh_MetaLoader {
 	 * @param $src  Filename of the metadata file.
 	 */
 	public function loadSource($source) {
-		
-		$entities = array();
-		try {
-			$entities = SimpleSAML_Metadata_SAMLParser::parseDescriptorsFile($source['src']);
-		} catch(Exception $e) {
-			SimpleSAML_Logger::warning('metarefresh: Failed to retrieve metadata. ' . $e->getMessage());
-		}
+
+		$entities = SimpleSAML_Metadata_SAMLParser::parseDescriptorsFile($source['src']);
 		$ca = NULL;
 		foreach($entities as $entity) {
 			if(array_key_exists('validateFingerprint', $source) && $source['validateFingerprint'] !== NULL) {
@@ -57,11 +54,6 @@ class sspmod_metarefresh_MetaLoader {
 			$this->addMetadata($source['src'], $entity->getMetadata1xIdP(), 'shib13-idp-remote', $template);
 			$this->addMetadata($source['src'], $entity->getMetadata20SP(), 'saml20-sp-remote', $template);
 			$this->addMetadata($source['src'], $entity->getMetadata20IdP(), 'saml20-idp-remote', $template);
-			$attributeAuthorities = $entity->getAttributeAuthorities();
-			if (!empty($attributeAuthorities)) {
-				$this->addMetadata($source['src'], $attributeAuthorities[0], 'attributeauthority-remote', $template);				
-			}
-
 		}
 	}
 
@@ -144,36 +136,7 @@ class sspmod_metarefresh_MetaLoader {
 	}
 
 
-	/**
-	 * This function writes the metadata to an ARP file
-	 */
-	function writeARPfile($config) {
-		
-		assert('is_a($config, \'SimpleSAML_Configuration\')');
-		
-		$arpfile = $config->getValue('arpfile');
-		$types = array('saml20-sp-remote');
-		
-		$md = array();
-		foreach($this->metadata as $category => $elements) {
-			if (!in_array($category, $types)) continue;
-			$md = array_merge($md, $elements);
-		}
-		
-		#$metadata, $attributemap, $prefix, $suffix
-		$arp = new sspmod_metarefresh_ARP($md, 
-			$config->getValue('attributemap', ''),  
-			$config->getValue('prefix', ''),  
-			$config->getValue('suffix', '')
-		);
-		
-		
-		$arpxml = $arp->getXML();
 
-		SimpleSAML_Logger::info('Writing ARP file: ' . $arpfile . "\n");
-		file_put_contents($arpfile, $arpxml);
-
-	}
 	
 	
 	/**
@@ -186,7 +149,6 @@ class sspmod_metarefresh_MetaLoader {
 		}
 	
 		if(!file_exists($outputDir)) {
-			if (!is_writable($outputDir)) throw new Exception('Permission denied creating directory: ' . $outputDir);
 			SimpleSAML_Logger::info('Creating directory: ' . $outputDir . "\n");
 			mkdir($outputDir, 0777, TRUE);
 		}
@@ -221,48 +183,6 @@ class sspmod_metarefresh_MetaLoader {
 			fclose($fh);
 		}
 	}
-
-
-	/**
-	 * Save metadata for loading with the 'serialize' metadata loader.
-	 *
-	 * @param string $outputDir  The directory we should save the metadata to.
-	 */
-	public function writeMetadataSerialize($outputDir) {
-		assert('is_string($outputDir)');
-
-		$metaHandler = new SimpleSAML_Metadata_MetaDataStorageHandlerSerialize(array('directory' => $outputDir));
-
-		/* First we add all the metadata entries to the metadata handler. */
-		foreach ($this->metadata as $set => $elements) {
-			foreach ($elements as $m) {
-				$entityId = $m['metadata']['entityid'];
-
-				SimpleSAML_Logger::debug('metarefresh: Add metadata entry ' .
-					var_export($entityId, TRUE) . ' in set ' . var_export($set, TRUE) . '.');
-				$metaHandler->saveMetadata($entityId, $set, $m['metadata']);
-			}
-		}
-
-		/* Then we delete old entries which should no longer exist. */
-		$ct = time();
-		foreach ($metaHandler->getMetadataSets() as $set) {
-			foreach ($metaHandler->getMetadataSet($set) as $entityId => $metadata) {
-				if (!array_key_exists('expire', $metadata)) {
-					SimpleSAML_Logger::warning('metarefresh: Metadata entry without expire timestamp: ' . var_export($entityId, TRUE) . 
-						' in set ' . var_export($set, TRUE) . '.');
-				}
-				if ($metadata['expire'] > $ct) {
-					continue;
-				}
-				SimpleSAML_Logger::debug('metarefresh: ' . $entityId . ' expired ' . date('l jS \of F Y h:i:s A', $metadata['expire']) );
-				SimpleSAML_Logger::debug('metarefresh: Delete expired metadata entry ' .
-					var_export($entityId, TRUE) . ' in set ' . var_export($set, TRUE) . '. (' . ($ct - $metadata['expire']) . ' sec)');
-				$metaHandler->deleteMetadata($entityId, $set);
-			}
-		}
-	}
-
 
 	private function getTime() {
 		/* The current date, as a string. */

@@ -23,7 +23,6 @@ assert('is_array($this->data["yesData"])');
 assert('is_string($this->data["noTarget"])');
 assert('is_array($this->data["noData"])');
 assert('is_array($this->data["attributes"])');
-assert('is_array($this->data["hiddenAttributes"])');
 assert('$this->data["sppp"] === FALSE || is_string($this->data["sppp"])');
 
 
@@ -31,48 +30,51 @@ assert('$this->data["sppp"] === FALSE || is_string($this->data["sppp"])');
 
 if (array_key_exists('name', $this->data['srcMetadata'])) {
 	$srcName = $this->data['srcMetadata']['name'];
-} elseif (array_key_exists('OrganizationDisplayName', $this->data['srcMetadata'])) {
-	$srcName = $this->data['srcMetadata']['OrganizationDisplayName'];
+	if (is_array($srcName)) {
+		$srcName = $this->t($srcName);
+	}
 } else {
 	$srcName = $this->data['srcMetadata']['entityid'];
 }
 
-if (is_array($srcName)) {
-	$srcName = $this->t($srcName);
-}
-
 if (array_key_exists('name', $this->data['dstMetadata'])) {
 	$dstName = $this->data['dstMetadata']['name'];
-} elseif (array_key_exists('OrganizationDisplayName', $this->data['dstMetadata'])) {
-	$dstName = $this->data['dstMetadata']['OrganizationDisplayName'];
+	if (is_array($dstName)) {
+		$dstName = $this->t($dstName);
+	}
 } else {
 	$dstName = $this->data['dstMetadata']['entityid'];
-}
-
-if (is_array($dstName)) {
-	$dstName = $this->t($dstName);
 }
 
 
 $attributes = $this->data['attributes'];
 
+
 $this->data['header'] = $this->t('{consent:consent:consent_header}');
 $this->data['head']  = '<link rel="stylesheet" type="text/css" href="/' . $this->data['baseurlpath'] . 'module.php/consent/style.css" />' . "\n";
 
 
-$this->includeAtTemplateBase('includes/header.php');
-?>
 
+$this->includeAtTemplateBase('includes/header.php');
+
+?>
 
 <p>
 <?php
 	echo $this->t('{consent:consent:consent_accept}', array( 'SPNAME' => $dstName, 'IDPNAME' => $srcName ));
+	#echo $this->t('{consent:consent:consent_notice}', array( 'SPNAME' => $dstName ));
 	if (array_key_exists('descr_purpose', $this->data['dstMetadata'])) {
 		echo '</p><p>' . $this->t('{consent:consent:consent_purpose}', array(
 			'SPNAME' => $dstName,
 			'SPDESC' => $this->getTranslation(SimpleSAML_Utilities::arrayize($this->data['dstMetadata']['descr_purpose'], 'en')),
 		));
 	}
+?>
+</p>
+
+<p>
+<?php
+  
 ?>
 </p>
 
@@ -85,25 +87,29 @@ $this->includeAtTemplateBase('includes/header.php');
 		$checked = ($this->data['checked'] ? 'checked="checked"' : '');
 		echo('<input type="checkbox" name="saveconsent" ' . $checked . ' value="1" /> ' . $this->t('{consent:consent:remember}') . '');
 	}
-	
+?>
+
+
+<?php
 	// Embed hidden fields...
 	foreach ($this->data['yesData'] as $name => $value) {
 		echo('<input type="hidden" name="' . htmlspecialchars($name) . '" value="' . htmlspecialchars($value) . '" />');
 	}
 ?>
-
 </p>
 		<input type="submit" name="yes" id="yesbutton" value="<?php echo htmlspecialchars($this->t('{consent:consent:yes}')) ?>" />
+
+
+
+
 </form>
 
 <form style="display: inline; margin-left: .5em;" action="<?php echo htmlspecialchars($this->data['noTarget']); ?>" method="get">
-
 <?php
 foreach ($this->data['noData'] as $name => $value) {
         echo('<input type="hidden" name="' . htmlspecialchars($name) . '" value="' . htmlspecialchars($value) . '" />');
 }
 ?>
-
 	<input type="submit" style="display: inline" name="no" id="nobutton" value="<?php echo htmlspecialchars($this->t('{consent:consent:no}')) ?>" />
 
 </form>
@@ -111,95 +117,126 @@ foreach ($this->data['noData'] as $name => $value) {
 <?php
 if ($this->data['sppp'] !== FALSE) {
 	echo "<p>" . htmlspecialchars($this->t('{consent:consent:consent_privacypolicy}')) . " ";
-	echo "<a target='_blank' href='" . htmlspecialchars($this->data['sppp']) . "'>" . htmlspecialchars($dstName) . "</a>";
+	echo "<a target='_new_window' href='" . htmlspecialchars($this->data['sppp']) . "'>" . htmlspecialchars($dstName) . "</a>";
 	echo "</p>";
 }
 ?>
 
+<form style="display: inline; margin-left: .5em;" action="<?php echo htmlspecialchars($this->data['noTarget']); ?>" method="get">
 <?php
-
-
-// Recursiv attribute array listing function
-function present_attributes($t, $attributes, $nameParent) {
-	$alternate = array('odd', 'even'); $i = 0;
-	$summary = 'summary="' . $t->t('{consent:consent:table_summary}') . '"';
-	
-	if(strlen($nameParent) > 0){
-		$parentStr = strtolower($nameParent) . '_';
-		$str = '<table class="attributes" ' . $summary . '>';
-	}else{
-		$parentStr = '';
-		$str = '<table id="table_with_attributes"  class="attributes" '. $summary .'>';
-		$str .= "\n" . '<caption>' . $t->t('{consent:consent:table_caption}') . '</caption>';
-	}
-	
-	foreach ($attributes as $name => $value) {
-		$nameraw = $name;
-		$nameTag = '{attributes:attribute_' . $parentStr . str_replace(":", "_", strtolower($name) ) . '}';
-		if ($t->getTag($nameTag) !== NULL) {
-			$name = $t->t($nameTag);
-		}
-		
-		if (preg_match('/^child_/', $nameraw)) {
-			// Insert child table
-			$parentName = preg_replace('/^child_/', '', $nameraw);
-			foreach($value AS $child) {
-				$str .= "\n" . '<tr class="odd"><td style="padding: 2em">' . present_attributes($t, $child, $parentName) . '</td></tr>';
-			}
-		} else {
-			// Insert values directly
-
-			$str .= "\n" . '<tr class="' . $alternate[($i++ % 2)] . '"><td><span class="attrname">' . htmlspecialchars($name) . '</span>';
-
-			$isHidden = in_array($nameraw, $t->data['hiddenAttributes'], TRUE);
-			if ($isHidden) {
-				$hiddenId = SimpleSAML_Utilities::generateID();
-
-				$str .= '<div class="attrvalue" style="display: none;" id="hidden_' . $hiddenId . '">';
-			} else {
-				$str .= '<div class="attrvalue">';
-			}
-
-			if (sizeof($value) > 1) {
-				// We hawe several values
-				$str .= '<ul>';
-				foreach ($value AS $listitem) {
-					if ($nameraw === 'jpegPhoto') {
-						$str .= '<li><img src="data:image/jpeg;base64,' . $listitem . '" alt="User photo" /></li>';
-					} else {
-						$str .= '<li>' . htmlspecialchars($listitem) . '</li>';
-					}
-				}
-				$str .= '</ul>';
-			} elseif(isset($value[0])) {
-				// We hawe only one value
-				if ($nameraw === 'jpegPhoto') {
-					$str .= '<img src="data:image/jpeg;base64,' . htmlspecialchars($value[0]) . '" alt="User photo" />';
-				} else {
-					$str .= htmlspecialchars($value[0]);
-				}
-			}	// end of if multivalue
-			$str .= '</div>';
-
-			if ($isHidden) {
-				$str .= '<div class="attrvalue consent_showattribute" id="visible_' . $hiddenId . '">';
-				$str .= '... ';
-				$str .= '<a class="consent_showattributelink" href="javascript:SimpleSAML_show(\'hidden_' . $hiddenId . '\'); SimpleSAML_hide(\'visible_' . $hiddenId . '\');">';
-				$str .= $t->t('{consent:consent:show_attribute}');
-				$str .= '</a>';
-				$str .= '</div>';
-			}
-
-			$str .= '</td></tr>';
-		}	// end else: not child table
-	}	// end foreach
-	$str .= isset($attributes)? '</table>':'';
-	return $str;
+foreach ($this->data['noData'] as $name => $value) {
+	echo('<input type="hidden" name="' . htmlspecialchars($name) . '" value="' . htmlspecialchars($value) . '" />');
 }
 ?>
-	<h3 id="attributeheader"><?php echo $this->t('{consent:consent:consent_attributes_header}',array( 'SPNAME' => $dstName, 'IDPNAME' => $srcName )); ?></h3>
-	<?php echo(present_attributes($this, $attributes, '')); ?>
+<?php
+
+	function present_list($attr) {
+		if (is_array($attr) && count($attr) > 1) {
+			$str = '<ul><li>' . join('</li><li>', $attr) . '</li></ul>';
+			return $str;
+		} else {
+			return htmlspecialchars($attr[0]);
+		}
+	}
+
+
+	function present_assoc($attr) {
+		if (is_array($attr)) {
+			
+			$str = '<dl>';
+			foreach ($attr AS $key => $value) {
+				$str .= "\n" . '<dt>' . htmlspecialchars($key) . '</dt><dd>' . present_list($value) . '</dd>';
+			}
+			$str .= '</dl>';
+			return $str;
+		} else {
+			return htmlspecialchars($attr);
+		}
+	}
+	
+
+
+	function present_attributes($t, $attributes, $nameParent) {
+		$alternate = array('odd', 'even'); $i = 0;
+		
+		$parentStr = (strlen($nameParent) > 0)? strtolower($nameParent) . '_': '';
+		$str = (strlen($nameParent) > 0)? '<table class="attributes">': '<table id="table_with_attributes"  class="attributes">';
+
+		foreach ($attributes as $name => $value) {
+			$nameraw = $name;
+			$nameTag = '{attributes:attribute_' . $parentStr . str_replace(":", "_", strtolower($name) ) . '}';
+			if ($t->getTag($nameTag) !== NULL) {
+				$name = $t->t($nameTag);
+			}
+			
+			if (preg_match('/^child_/', $nameraw)) {
+				$parentName = preg_replace('/^child_/', '', $nameraw);
+				foreach($value AS $child) {
+					$str .= '<tr class="odd"><td colspan="2" style="padding: 2em">' . present_attributes($t, $child, $parentName) . '</td></tr>';
+				}
+			} else {	
+				if (sizeof($value) > 1) {
+					$str .= '<tr class="' . $alternate[($i++ % 2)] . '"><td class="attrname">' . htmlspecialchars($name) . '</td><td class="attrvalue"><ul>';
+					foreach ($value AS $listitem) {
+						if ($nameraw === 'jpegPhoto') {
+							$str .= '<li><img src="data:image/jpeg;base64,' . $listitem . '" /></li>';
+						} else {
+							$str .= '<li>' . present_assoc($listitem) . '</li>';
+						}
+					}
+					$str .= '</ul></td></tr>';
+				} elseif(isset($value[0])) {
+					$str .= '<tr class="' . $alternate[($i++ % 2)] . '"><td class="attrname">' . htmlspecialchars($name) . '</td>';
+					if ($nameraw === 'jpegPhoto') {
+						$str .= '<td class="attrvalue"><img src="data:image/jpeg;base64,' . htmlspecialchars($value[0]) . '" /></td></tr>';
+					} else {
+						$str .= '<td class="attrvalue">' . htmlspecialchars($value[0]) . '</td></tr>';
+					}
+				}
+			}
+			$str .= "\n";
+		}
+		$str .= '</table>';
+		return $str;
+	}
+
+
+?>
+
+
+<!-- Show attributes that are sent to the service in a fieldset. 
+	This fieldset is not expanded by default, but can be shown by clicking on the legend.
+	-->
+
+	<fieldset class="fancyfieldset">
+		<legend id="attribute_switch"><?php 
+			echo $this->t('{consent:consent:consent_attributes_header}',array( 'SPNAME' => $dstName, 'IDPNAME' => $srcName )); 
+		?></legend>
+	
+	<!-- 
+	<div id="addattributes">
+		<a id="addattributesb" class="link"><?php echo $this->t('{consent:consent:show_attributes}'); ?></a>
+	</div>
+	-->
+	<?php
+	
+		echo(present_attributes($this, $attributes, ''));
+
+	
+	?>
+	
+	</fieldset>
+<!-- end attribute view -->
+
+
+
+
+
+
+</form>
+
 
 <?php
+
 $this->includeAtTemplateBase('includes/footer.php');
 ?>

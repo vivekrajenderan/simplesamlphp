@@ -1,4 +1,5 @@
 <?php 
+	if (!array_key_exists('icon', $this->data)) $this->data['icon'] = 'lock.png';
 	if (!isset($this->data['autofocus'])) {
 		$this->data['autofocus'] = 'username';
 	}
@@ -7,7 +8,7 @@
 
 	<?php if (isset($this->data['error'])) { ?>
 		<div style="border-left: 1px solid #e8e8e8; border-bottom: 1px solid #e8e8e8; background: #f5f5f5">
-		<img src="/<?php echo $this->data['baseurlpath']; ?>resources/icons/experience/gtk-dialog-error.48x48.png" style="float: left; margin: 15px " />
+		<img src="/<?php echo $this->data['baseurlpath']; ?>resources/icons/bomb.png" style="float: left; margin: 15px " />
 		<h2><?php echo $this->t('error_header'); ?></h2>
 		
 		<p><?php echo $this->t($this->data['error']); ?> </p>
@@ -22,7 +23,7 @@
 
 	<table>
 		<tr>
-			<td rowspan="2"><img src="/<?php echo $this->data['baseurlpath']; ?>resources/icons/experience/gtk-dialog-authentication.48x48.png" /></td>
+			<td rowspan="2"><img src="/<?php echo $this->data['baseurlpath']; ?>resources/icons/pencil.png" /></td>
 			<td style="padding: .3em;"><?php echo $this->t('username'); ?></td>
 			
 			

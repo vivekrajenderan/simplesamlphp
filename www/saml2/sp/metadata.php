@@ -8,12 +8,16 @@ $metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
 $session = SimpleSAML_Session::getInstance();
 
 
-if (!$config->getValue('enable.saml20-sp', TRUE))
+if (!$config->getValue('enable.saml20-sp', false))
 	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOACCESS');
 
 /* Check if valid local session exists.. */
-if ($config->getBoolean('admin.protectmetadata', false)) {
-	SimpleSAML_Utilities::requireAdmin();
+if ($config->getValue('admin.protectmetadata', false)) {
+	if (!isset($session) || !$session->isValid('login-admin') ) {
+		SimpleSAML_Utilities::redirect('/' . $config->getBaseURL() . 'auth/login-admin.php',
+			array('RelayState' => SimpleSAML_Utilities::selfURL())
+		);
+	}
 }
 
 try {
@@ -23,8 +27,6 @@ try {
 	$spentityid = isset($_GET['spentityid']) ? $_GET['spentityid'] : $metadata->getMetaDataCurrentEntityID();
 	
 	$metaArray = array(
-		'metadata-set' => 'saml20-sp-remote',
-		'entityid' => $spentityid,
 		'AssertionConsumerService' => $metadata->getGenerated('AssertionConsumerService', 'saml20-sp-hosted'),
 		'SingleLogoutService' => $metadata->getGenerated('SingleLogoutService', 'saml20-sp-hosted'),
 	);
@@ -34,34 +36,14 @@ try {
 	} else {
 		$metaArray['NameIDFormat'] = 'urn:oasis:names:tc:SAML:2.0:nameid-format:transient';
 	}
-
-	if (!empty($spmeta['OrganizationName'])) {
-		$metaArray['OrganizationName'] = $spmeta['OrganizationName'];
-
-		if (!empty($spmeta['OrganizationDisplayName'])) {
-			$metaArray['OrganizationDisplayName'] = $spmeta['OrganizationDisplayName'];
-		} else {
-			$metaArray['OrganizationDisplayName'] = $spmeta['OrganizationName'];
-		}
-
-		if (empty($spmeta['OrganizationURL'])) {
-			throw new SimpleSAML_Error_Exception('If OrganizationName is set, OrganizationURL must also be set.');
-		}
-		$metaArray['OrganizationURL'] = $spmeta['OrganizationURL'];
-	}
-
-
-	if (array_key_exists('attributes', $spmeta)) {
-		$metaArray['attributes'] = $spmeta['attributes'];
-	}
-	if (array_key_exists('attributes.NameFormat', $spmeta)) {
-		$metaArray['attributes.NameFormat'] = $spmeta['attributes.NameFormat'];
-	}
 	if (array_key_exists('name', $spmeta)) {
 		$metaArray['name'] = $spmeta['name'];
 	}
 	if (array_key_exists('description', $spmeta)) {
 		$metaArray['description'] = $spmeta['description'];
+	}
+	if (array_key_exists('url', $spmeta)) {
+		$metaArray['url'] = $spmeta['url'];
 	}
 
 	$certInfo = SimpleSAML_Utilities::loadPublicKey($spmeta);
@@ -69,14 +51,13 @@ try {
 		$metaArray['certData'] = $certInfo['certData'];
 	}
 
-	$metaflat = '$metadata[' . var_export($spentityid, TRUE) . '] = ' . var_export($metaArray, TRUE) . ';';
+	$metaflat = var_export($spentityid, TRUE) . ' => ' . var_export($metaArray, TRUE) . ',';
 
 	$metaBuilder = new SimpleSAML_Metadata_SAMLBuilder($spentityid);
 	$metaBuilder->addMetadataSP20($metaArray);
-	$metaBuilder->addOrganizationInfo($metaArray);
 	$metaBuilder->addContact('technical', array(
-		'emailAddress' => $config->getString('technicalcontact_email', NULL),
-		'name' => $config->getString('technicalcontact_name', NULL),
+		'emailAddress' => $config->getValue('technicalcontact_email'),
+		'name' => $config->getValue('technicalcontact_name'),
 		));
 	$metaxml = $metaBuilder->getEntityDescriptorText();
 
@@ -98,12 +79,16 @@ try {
 	}
 	
 	
-	$adminok = SimpleSAML_Utilities::isAdmin();
-	$adminlogin = SimpleSAML_Utilities::getAdminLoginURL(
-		SimpleSAML_Utilities::addURLParameter(
-			SimpleSAML_Utilities::selfURLNoQuery(),
-			array('output' => 'xhtml')
-		));
+	$adminok = (isset($session) && $session->isValid('login-admin') );
+	$adminlogin = SimpleSAML_Utilities::addURLparameter(
+		'/' . $config->getBaseURL() . 'auth/login-admin.php', 
+		array('RelayState' => 
+			SimpleSAML_Utilities::addURLParameter(
+				SimpleSAML_Utilities::selfURLNoQuery(),
+				array('output' => 'xhtml')
+			)
+		)
+	);
 	
 
 	$sentok = FALSE;
@@ -165,6 +150,8 @@ try {
 	
 
 	if (array_key_exists('output', $_REQUEST) && $_REQUEST['output'] == 'xhtml') {
+		$defaultidp = $config->getValue('default-saml20-idp');
+		
 		$t = new SimpleSAML_XHTML_Template($config, 'metadata.php', 'admin');
 	
 		$t->data['header'] = 'saml20-sp';
@@ -177,7 +164,10 @@ try {
 		$t->data['adminok'] = $adminok;
 		$t->data['adminlogin'] = $adminlogin;
 		
-		$t->data['techemail'] = $config->getString('technicalcontact_email', NULL);
+		$t->data['techemail'] = $config->getValue('technicalcontact_email', NULL);
+		
+// 		$t->data['version'] = $config->getValue('version', 'na');
+// 		$t->data['defaultidp'] = $defaultidp;
 		
 		$t->show();
 		

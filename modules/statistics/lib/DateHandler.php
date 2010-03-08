@@ -16,23 +16,13 @@ class sspmod_statistics_DateHandler {
 	public function __construct($offset) {
 		$this->offset = $offset;
 	}
-	
-	protected function getDST($timestamp) {
-		if (idate('I', $timestamp)) return 3600;
-		return 0;
-	}
 
 	public function toSlot($epoch, $slotsize) {
-		$dst = $this->getDST($epoch);
-		return floor( ($epoch + $this->offset + $dst) / $slotsize);
+		return floor( ($epoch + $this->offset) / $slotsize);
 	}
 
 	public function fromSlot($slot, $slotsize) {
-		// echo("slot $slot slotsize $slotsize offset  " . $this->offset);
-		// throw new Exception();
-		$temp = $slot*$slotsize - $this->offset;
-		$dst = $this->getDST($temp);
-		return $slot*$slotsize - $this->offset - $dst;
+		return $slot*$slotsize - $this->offset;
 	}
 
 	public function prettyDateEpoch($epoch, $dateformat) {
@@ -42,13 +32,6 @@ class sspmod_statistics_DateHandler {
 	public function prettyDateSlot($slot, $slotsize, $dateformat) {
 		return $this->prettyDateEpoch($this->fromSlot($slot, $slotsize), $dateformat);
 
-	}
-	
-	public function prettyHeader($from, $to, $slotsize, $dateformat) {
-		$text = $this->prettyDateSlot($from, $slotsize, $dateformat);
-		$text .= ' to ';
-		$text .= $this->prettyDateSlot($to, $slotsize, $dateformat);
-		return $text;
 	}
 
 }
@@ -63,3 +46,4 @@ class sspmod_statistics_DateHandler {
 // 	print_r($timestamp);
 // 	print_r($restcols); if ($i++ > 5) exit;
 
+?>

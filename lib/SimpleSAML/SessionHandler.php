@@ -82,53 +82,41 @@ abstract class SimpleSAML_SessionHandler {
 	abstract public function get($key);
 
 
-	/**
-	 * Initialize the session handler.
-	 *
-	 * This function creates an instance of the session handler which is
+	/* This function creates an instance of the session handler which is
 	 * selected in the 'session.handler' configuration directive. If no
 	 * session handler is selected, then we will fall back to the default
 	 * PHP session handler.
 	 */
-	private static function createSessionHandler() {
-
+	public static function createSessionHandler() {
+		
+		global $SIMPLESAML_INCPREFIX;
+		
 		/* Get the configuration. */
 		$config = SimpleSAML_Configuration::getInstance();
 		assert($config instanceof SimpleSAML_Configuration);
 
 		/* Get the session handler option from the configuration. */
-		$handler = $config->getString('session.handler', 'phpsession');
+		$handler = $config->getValue('session.handler', 'phpsession');
+
+		assert('is_string($handler)');
+
 		$handler = strtolower($handler);
 
-		switch ($handler) {
-		case 'phpsession':
+		if($handler === 'phpsession') {
 			$sh = new SimpleSAML_SessionHandlerPHP();
-			break;
-		case 'memcache':
+		} else if($handler === 'memcache') {
 			$sh = new SimpleSAML_SessionHandlerMemcache();
-			break;
-		default:
-			throw new SimpleSAML_Error_Exception(
-				'Invalid session handler specified in the \'session.handler\'-option.');
+		} else {
+			$e = 'Invalid value for the \'session.handler\'' .
+			     ' configuration option. Unknown session' .
+			     ' handler: ' . $handler;
+			error_log($e);
+			die($e);
 		}
 
 		/* Set the session handler. */
 		self::$sessionHandler = $sh;
 	}
-
-
-	/**
-	 * Check whether the session cookie is set.
-	 *
-	 * This function will only return FALSE if is is certain that the cookie isn't set.
-	 *
-	 * @return bool  TRUE if it was set, FALSE if not.
-	 */
-	public function hasSessionCookie() {
-
-		return TRUE;
-	}
-
 }
 
 ?>

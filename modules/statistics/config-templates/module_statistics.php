@@ -5,24 +5,17 @@
 
 $config = array (
 
-	/* Authentication & authorization for statistics. */
-
-	/* Whether the statistics require authentication before use. */
+	// Access control on statistics page.
 	'protected' => FALSE,
-
-	/* The authentication source that should be used. */
-	'auth' => 'admin',
-
-	/* Alternative 1: List of allowed users. */
-	//'useridattr' => 'eduPersonPrincipalName',
-	//'allowedUsers' => array('andreas@uninett.no', 'ola.normann@sp.example.org'),
-
-	/* Alternative 2: External ACL list. */
-	//'acl' => 'adminlist',
-
-
-
-	'default' => 'sso',
+	
+	/*
+	 * Which authenticatino source should be used for authentication exception from admin module.
+	 * Set to NULL if only using admin auth.
+	 */
+	//'auth' => 'feide',
+	
+	'useridattr' => 'eduPersonPrincipalName',
+	'allowedUsers' => array('andreas@uninett.no', 'ola.normann@sp.example.org'),
 
 	'statdir' => '/tmp/stats/',
 	'inputfile' => '/var/log/simplesamlphp.stat',
@@ -43,196 +36,92 @@ $config = array (
 	 *     'cron_tag' => NULL,
 	 */
 	'cron_tag' => 'daily',
-
-	/*
-	 * Set max running time for this script. This is also controlle by max_execution_time in php.ini
-	 * and is defalut set to 30 sec. Your web server can have other timeout configurations that may
-	 * also interrupt PHP execution. Apache has a Timeout directive and IIS has a
-	 * CGI timeout function. Both default to 300 seconds.
-	 */
-	'time_limit' => 300,
 	
-	'timeres' => array(
-		'day' => array(
-			'name' => 'Day',
-			'slot'		=> 60*15,			// Slots of 15 minutes
-			'fileslot'	=> 60*60*24,		// One day (24 hours) file slots
-			'axislabelint' => 6*4,			// Number of slots per label. 4 per hour *6 = 6 hours 
-			'dateformat-period'	=> 'j. M', 			//  4. Mars
-			'dateformat-intra'	=> 'j. M H:i', 		//  4. Mars 12:30	
-		),
-		'week' => array(
-			'name' => 'Week',
-			'slot'		=> 60*60,			// Slots of one hour
-			'fileslot'	=> 60*60*24*7,		// 7 days of data in each file
-			'axislabelint' => 24,			// Number of slots per label. 24 is one each day
-			'dateformat-period'	=> 'j. M', 			//  4. Mars
-			'dateformat-intra'	=> 'j. M H:i', 		//  4. Mars 12:30
-		),
-		'month' => array(
-			'name' => 'Month',
-			'slot'		=> 60*60*24,		// Slots of one day
-			'fileslot'	=> 60*60*24*30,		// 30 days of data in each file
-			'axislabelint' => 7,			// Number of slots per label. 7 days => 1 week
-			'dateformat-period'	=> 'j. M Y H:i', 	//  4. Mars 12:30
-			'dateformat-intra'	=> 'j. M', 			//  4. Mars
-		),
-		'monthaligned' => array(
-			'name' => 'AlignedMonth',
-			'slot'		=> 60*60*24,		// Slots of one day
-			'fileslot'	=> NULL,		// 30 days of data in each file
-			'customDateHandler' => 'month',
-			'axislabelint' => 7,			// Number of slots per label. 7 days => 1 week
-			'dateformat-period'	=> 'j. M Y H:i', 	//  4. Mars 12:30
-			'dateformat-intra'	=> 'j. M', 			//  4. Mars
-		),
-		
-		'days180' => array(
-			'name' => '180 days',
-			'slot'		=> 60*60*24,		// Slots of 1 day (24 hours)
-			'fileslot'	=> 60*60*24*180,	// 80 days of data in each file
-			'axislabelint' => 30,			// Number of slots per label. 7 days => 1 week
-			'dateformat-period'	=> 'j. M', 		//  4. Mars
-			'dateformat-intra'	=> 'j. M', 		//  4. Mars
-		),
-	),
-	
-	'time_limit' => 300,
-	
-	'timeres' => array(
-		'day' => array(
-			'name' => 'Day',
-			'slot'		=> 60*15,			// Slots of 15 minutes
-			'fileslot'	=> 60*60*24,		// One day (24 hours) file slots
-			'axislabelint' => 6*4,			// Number of slots per label. 4 per hour *6 = 6 hours 
-			'dateformat-period'	=> 'j. M', 			//  4. Mars
-			'dateformat-intra'	=> 'j. M H:i', 		//  4. Mars 12:30	
-		),
-		'week' => array(
-			'name' => 'Week',
-			'slot'		=> 60*60,			// Slots of one hour
-			'fileslot'	=> 60*60*24*7,		// 7 days of data in each file
-			'axislabelint' => 24,			// Number of slots per label. 24 is one each day
-			'dateformat-period'	=> 'j. M', 			//  4. Mars
-			'dateformat-intra'	=> 'j. M H:i', 		//  4. Mars 12:30
-		),
-		'month' => array(
-			'name' => 'Month',
-			'slot'		=> 60*60*24,		// Slots of one day
-			'fileslot'	=> 60*60*24*30,		// 30 days of data in each file
-			'axislabelint' => 7,			// Number of slots per label. 7 days => 1 week
-			'dateformat-period'	=> 'j. M Y H:i', 	//  4. Mars 12:30
-			'dateformat-intra'	=> 'j. M', 			//  4. Mars
-		),
-		'monthaligned' => array(
-			'name' => 'AlignedMonth',
-			'slot'		=> 60*60*24,		// Slots of one day
-			'fileslot'	=> NULL,		// 30 days of data in each file
-			'customDateHandler' => 'month',
-			'axislabelint' => 7,			// Number of slots per label. 7 days => 1 week
-			'dateformat-period'	=> 'j. M Y H:i', 	//  4. Mars 12:30
-			'dateformat-intra'	=> 'j. M', 			//  4. Mars
-		),
-		
-		'days180' => array(
-			'name' => '180 days',
-			'slot'		=> 60*60*24,		// Slots of 1 day (24 hours)
-			'fileslot'	=> 60*60*24*180,	// 80 days of data in each file
-			'axislabelint' => 30,			// Number of slots per label. 7 days => 1 week
-			'dateformat-period'	=> 'j. M', 		//  4. Mars
-			'dateformat-intra'	=> 'j. M', 		//  4. Mars
-		),
-	),
 	'statrules' => array(
-		'sloratio' => array(
-			'name' 		=> 'SLO to SSO ratio',
-			'descr'		=> 'Comparison of the number of Single Log-Out compared to Single Sign-On. Graph shows how many logouts where initiated for each Single Sign-On.',
-			'type' => 'calculated',
-			'presenter' => 'statistics:Ratio',
-			'ref' => array('slo', 'sso'),
-			'fieldPresentation' => array(
-				'class' => 'statistics:Entity',
-				'config' => 'saml20-sp-remote',
-			),
+		'sso_hoursday' => array(
+			'name' 		=> 'SSO to service (per 15min)',
+			'descr'		=> 'The number of logins at a Service Provider divided into slots of one hour. Each file contains data for one day (24 hours)',
+		
+			'action' 	=> 'saml20-sp-SSO',
+			'col'		=> 6,				// Service Provider EntityID
+			'slot'		=> 60*15,			// Slots of 15 minutes
+			'fileslot'	=> 60*60*24,		// One day (24 hours) file slots
+			'axislabelint' => 6*4,			// Number of slots per label. 4 per hour *6 = 6 hours 
+			
+			'dateformat-period'	=> 'j. M', 			//  4. Mars
+			'dateformat-intra'	=> 'j. M H:i', 		//  4. Mars 12:30
 		),
-		'ssomulti' => array(
-			'name' 		=> 'Requests per session',
-			'descr'		=> 'Number of SSO request pairs exchanged between IdP and SP within the same IdP session. A high number indicates that the session at the SP is timing out faster than at the IdP.',
-			'type' => 'calculated',
-			'presenter' => 'statistics:Ratio',
-			'ref' => array('sso', 'ssofirst'),
-			'fieldPresentation' => array(
-				'class' => 'statistics:Entity',
-				'config' => 'saml20-sp-remote',
-			),
+		'sso_day80' => array(
+			'name' 		=> 'SSO to service (per day for 80 days)',
+			'descr'		=> 'The number of logins at a Service Provider divided into slots of one day. Each file contains data for 80 days',
+		
+			'action' 	=> 'saml20-sp-SSO',
+			'col'		=> 6,				// Service Provider EntityID
+			'slot'		=> 60*60*24,		// Slots of 1 day (24 hours)
+			'fileslot'	=> 60*60*24*80,		// 80 days of data in each file
+			'axislabelint' => 7,			// Number of slots per label. 7 days => 1 week
+			
+			'dateformat-period'	=> 'j. M', 		//  4. Mars
+			'dateformat-intra'	=> 'j. M', 		//  4. Mars
 		),
-		'sso' => array(
-			'name' 		=> 'SSO to service',
-			'descr'		=> 'The number of logins at a Service Provider.',
+		'sso_day80realm' => array(
+			'name' 		=> 'SP by realm (per day for 80 days)',
+			'descr'		=> 'The number of logins at a Service Provider divided into slots of one day. Each file contains data for 80 days',
+		
 			'action' 	=> 'saml20-idp-SSO',
-			'col'		=> 6,				// Service Provider EntityID
-			'fieldPresentation' => array(
-				'class' => 'statistics:Entity',
-				'config' => 'saml20-sp-remote',
-			),
+			'col'		=> 8,				// Service Provider EntityID
+			'slot'		=> 60*60*24,		// Slots of 1 day (24 hours)
+			'fileslot'	=> 60*60*24*80,		// 80 days of data in each file
+			'axislabelint' => 7,			// Number of slots per label. 7 days => 1 week
+		
+			'graph.total' => TRUE,
+
+
+			'dateformat-period'	=> 'j. M', 		//  4. Mars
+			'dateformat-intra'	=> 'j. M', 		//  4. Mars
 		),
-		'ssofirst' => array(
-			'name' 		=> 'SSO-first to service',
-			'descr'		=> 'The number of logins at a Service Provider.',
-			'action' 	=> 'saml20-idp-SSO-first',
+		'sso_hoursweek' => array(
+			'name' 		=> 'SSO to service (per hour for a week)',
+			'descr'		=> 'The number of logins at a Service Provider divided into slots of one hour. Each file contains data for one week.',
+		
+			'action' 	=> 'saml20-sp-SSO',
 			'col'		=> 6,				// Service Provider EntityID
-			'fieldPresentation' => array(
-				'class' => 'statistics:Entity',
-				'config' => 'saml20-sp-remote',
-			),
+			'slot'		=> 60*60,			// Slots of one hour
+			'fileslot'	=> 60*60*24*7,		// 7 days of data in each file
+			'axislabelint' => 24,			// Number of slots per label. 24 is one each day
+			
+			'dateformat-period'	=> 'j. M', 			//  4. Mars
+			'dateformat-intra'	=> 'j. M H:i', 		//  4. Mars 12:30
 		),
-		'slo' => array(
-			'name' 		=> 'SLO initiated from service',
-			'descr'		=> 'The number of initated Sinlge Logout from each of the service providers.',
+		'sso_days' => array(
+			'name' 		=> 'SSO to service (per day for a month)',
+			'descr'		=> 'The number of logins at a Service Provider divided into slots of one day. Each file contains data for 30 days.',
+		
+			'action' 	=> 'saml20-sp-SSO',
+			'col'		=> 6,				// Service Provider EntityID
+			'slot'		=> 60*60*24,		// Slots of one day
+			'fileslot'	=> 60*60*24*30,		// 30 days of data in each file
+			'axislabelint' => 7,			// Number of slots per label. 7 days => 1 week
+			
+			'dateformat-period'	=> 'j. M Y H:i', 	//  4. Mars 12:30
+			'dateformat-intra'	=> 'j. M', 			//  4. Mars
+		),
+		'slo_days' => array(
+			'name' 		=> 'Logout (per day for a month)',
+			'descr'		=> 'The number of logouts divided into slots of one day. Each file contains data for 30 days.',
+		
 			'action' 	=> 'saml20-idp-SLO',
 			'col'		=> 7,				// Service Provider EntityID that initiated the logout.
-			'fieldPresentation' => array(
-				'class' => 'statistics:Entity',
-				'config' => 'saml20-sp-remote',
-			),
+			'slot'		=> 60*60*24,		// Slots of one day
+			'fileslot'	=> 60*60*24*30,		// 30 days of data in each file
+			'axislabelint' => 7,			// Number of slots per label. 7 days => 1 week
+			
+			'dateformat-period'	=> 'j. M Y H:i', 	//  4. Mars 12:30
+			'dateformat-intra'	=> 'j. M', 			//  4. Mars
 		),
-		'consent' => array(
-			'name' 		=> 'Consent',
-			'descr'		=> 'Consent statistics. Everytime a user logs in to a service an entry is logged for one of three states: consent was found, consent was not found or consent storage was not available.',
-			'action' 	=> 'consent',
-			'col'		=> 6,
-			'fieldPresentation' => array(
-				'class' => 'statistics:Entity',
-				'config' => 'saml20-sp-remote',
-			),
-		),
-		'consentresponse' => array(
-			'name' 		=> 'Consent response',
-			'descr'		=> 'Consent response statistics. Everytime a user accepts consent, it is logged whether the user selected to remember the consent to next time.',
-			'action' 	=> 'consentResponse',
-			'col'		=> 6,
-			'fieldPresentation' => array(
-				'class' => 'statistics:Entity',
-				'config' => 'saml20-sp-remote',
-			),
-		),
-		'slopages' => array(
-			'name' 		=> 'SLO iframe pages',
-			'descr'		=> 'The varioust IFrame SLO pages a user visits',
-			'action' 	=> 'slo-iframe',
-			'col'		=> 6,				// Page the user visits.
-		),
-		'slofail' => array(
-			'name' 		=> 'Failed iframe IdP-init SLOs',
-			'descr'		=> 'The number of logout failures from various SPs',
-			'action' 	=> 'slo-iframe-fail',
-			'col'		=> 6,				// Service Provider EntityID that wasn't logged out.
-			'fieldPresentation' => array(
-				'class' => 'statistics:Entity',
-				'config' => 'saml20-sp-remote',
-			),
-		),
+		
 	),
 
 );
 
+?>

@@ -23,11 +23,6 @@ class sspmod_ldap_Auth_Source_LDAPMulti extends sspmod_core_Auth_UserPassOrgBase
 	 */
 	private $ldapOrgs;
 
-	/**
-	 * Whether we should include the organization as part of the username.
-	 */
-	private $includeOrgInUsername;
-
 
 	/**
 	 * Constructor for this authentication source.
@@ -42,31 +37,9 @@ class sspmod_ldap_Auth_Source_LDAPMulti extends sspmod_core_Auth_UserPassOrgBase
 		/* Call the parent constructor first, as required by the interface. */
 		parent::__construct($info, $config);
 
-		$cfgHelper = SimpleSAML_Configuration::loadFromArray($config,
-			'Authentication source ' . var_export($this->authId, TRUE));
-
-
 		$this->orgs = array();
 		$this->ldapOrgs = array();
-		foreach ($config as $name => $value) {
-
-			if ($name === 'username_organization_method') {
-				$usernameOrgMethod = $cfgHelper->getValueValidate(
-					'username_organization_method',
-					array('none', 'allow', 'force'));
-				$this->setUsernameOrgMethod($usernameOrgMethod);
-				continue;
-			}
-
-			if ($name === 'include_organization_in_username') {
-				$this->includeOrgInUsername = $cfgHelper->getBoolean(
-					'include_organization_in_username', FALSE);
-				continue;
-			}
-
-			$orgCfg = $cfgHelper->getArray($name);
-			$orgId = $name;
-
+		foreach ($config as $orgId => $orgCfg) {
 			if (array_key_exists('description', $orgCfg)) {
 				$this->orgs[$orgId] = $orgCfg['description'];
 			} else {
@@ -89,10 +62,9 @@ class sspmod_ldap_Auth_Source_LDAPMulti extends sspmod_core_Auth_UserPassOrgBase
 	 * @param string $org  The organization the user chose.
 	 * @return array  Associative array with the users attributes.
 	 */
-	protected function login($username, $password, $org, array $sasl_args = NULL) {
+	protected function login($username, $password, $org) {
 		assert('is_string($username)');
 		assert('is_string($password)');
-		assert('is_string($org)');
 
 		if (!array_key_exists($org, $this->ldapOrgs)) {
 			/* The user has selected an organization which doesn't exist anymore. */
@@ -102,11 +74,7 @@ class sspmod_ldap_Auth_Source_LDAPMulti extends sspmod_core_Auth_UserPassOrgBase
 			throw new SimpleSAML_Error_Error('WRONGUSERPASS');
 		}
 
-		if ($this->includeOrgInUsername) {
-			$username = $username . '@' . $org;
-		}
-
-		return $this->ldapOrgs[$org]->login($username, $password, $sasl_args);
+		return $this->ldapOrgs[$org]->login($username, $password);
 	}
 
 

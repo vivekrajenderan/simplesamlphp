@@ -10,11 +10,8 @@ $this->data['autofocus'] = 'dropdownlist';
 $this->includeAtTemplateBase('includes/header.php');
 
 foreach ($this->data['idplist'] AS $idpentry) {
-	if (isset($idpentry['name'])) {
+	if (isset($idpentry['name']))
 		$this->includeInlineTranslation('idpname_' . $idpentry['entityid'], $idpentry['name']);
-	} elseif (isset($idpentry['OrganizationDisplayName'])) {
-		$this->includeInlineTranslation('idpname_' . $idpentry['entityid'], $idpentry['OrganizationDisplayName']);
-	}
 	if (isset($idpentry['description']))
 		$this->includeInlineTranslation('idpdesc_' . $idpentry['entityid'], $idpentry['description']);
 }

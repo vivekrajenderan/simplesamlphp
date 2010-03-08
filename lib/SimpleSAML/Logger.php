@@ -21,15 +21,6 @@ class SimpleSAML_Logger {
 	private static $capturedLog = array();
 
 	/**
-	 * Array with log messages from before we
-	 * initialized the logging handler.
-	 *
-	 * @var array
-	 */
-	private static $earlyLog = array();
-
-
-	/**
 	 * This constant defines the string we set the trackid to while we are fetching the
 	 * trackid from the session class. This is used to prevent infinite recursion.
 	 */
@@ -105,21 +96,33 @@ class SimpleSAML_Logger {
 	
 	
 	public static function createLoggingHandler() {
-
-		/* Set to FALSE to indicate that it is being initialized. */
-		self::$loggingHandler = FALSE;
-
+	
+		global $SIMPLESAML_INCPREFIX;
+	
 		/* Get the configuration. */
 		$config = SimpleSAML_Configuration::getInstance();
 		assert($config instanceof SimpleSAML_Configuration);
 
 		/* Get the metadata handler option from the configuration. */
-		$handler = $config->getString('logging.handler', 'syslog');
+		$handler = $config->getValue('logging.handler','syslog');
 
 		/*
 		 * setting minimum log_level
 		 */
-		self::$logLevel = $config->getInteger('logging.level',LOG_INFO);
+		self::$logLevel = $config->getValue('logging.level',LOG_INFO);
+
+		/* If 'logging.handler' is NULL or unset, then we want
+		 * to fall back to the default logging handler.
+		 */
+		if(is_null($handler)) {
+			$handler = 'syslog';
+		}
+
+
+		/* The session handler must be a string. */
+		if(!is_string($handler)) {
+			throw new Exception('Invalid setting for the [logging.handler] configuration option. This option should be set to a valid string.');
+		}
 
 		$handler = strtolower($handler);
 
@@ -146,30 +149,8 @@ class SimpleSAML_Logger {
 	}	
 	
 	static function log_internal($level,$string,$statsLog = false) {
-		if (self::$loggingHandler === NULL) {
-			/* Initialize logging. */
+		if (self::$loggingHandler == null)
 			self::createLoggingHandler();
-
-			if (!empty(self::$earlyLog)) {
-				error_log('----------------------------------------------------------------------');
-				/* Output messages which were logged before we initialized to the proper log. */
-				foreach (self::$earlyLog as $msg) {
-					self::log_internal($msg['level'], $msg['string'], $msg['statsLog']);
-				}
-			}
-
-		} elseif (self::$loggingHandler === FALSE) {
-			/* Some error occured while initializing logging. */
-			if (empty(self::$earlyLog)) {
-				/* This is the first message. */
-				error_log('--- Log message(s) while initializing logging ------------------------');
-			}
-			error_log($string);
-
-			self::$earlyLog[] = array('level' => $level, 'string' => $string, 'statsLog' => $statsLog);
-			return;
-		}
-
 		
 		if (self::$captureLog) self::$capturedLog[] = $string;
 		
@@ -213,3 +194,44 @@ class SimpleSAML_Logger {
 		return self::$trackid;
 	}
 }
+
+
+ /*
+class SimpleSAML_Logger {
+
+
+	private $configuration = null;
+	private $loglevel = LOG_NOTICE;
+
+	public function __construct() {
+
+		$this->configuration = SimpleSAML_Configuration::getInstance();
+		$this->loglevel = $this->configuration->getValue('logging.level');
+		
+		define_syslog_variables();
+		openlog("simpleSAMLphp", LOG_PID, $this->configuration->getValue('logging.facility') );
+		
+	}
+	public function log($priority, $trackid = null, $module, $submodule, $eventtype, $content, $message) {
+
+		if ($priority > $this->loglevel) return;
+		if ($trackid == null) {
+			$trackid = 'na';
+		}
+		
+		$contentstring = '';
+		if (is_array($content)) {
+			$contentstring = implode('|', $content); 
+		} else {
+			$contentstring = $content; 
+		}
+		
+		$logstring = implode(',', array($priority, $trackid, $module, $submodule, $eventtype, $contentstring, $message));
+		syslog($priority, " OLD ".$logstring);
+	
+	}
+}
+*/
+
+
+?>

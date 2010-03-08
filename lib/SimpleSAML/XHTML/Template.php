@@ -77,9 +77,7 @@ class SimpleSAML_XHTML_Template {
 		$this->language = $language;
 		// setcookie ( string $name [, string $value [, int $expire [, string $path [, string $domain [, bool $secure [, bool $httponly ]]]]]] )
 		// time()+60*60*24*900 expires 900 days from now.
-		if (!headers_sent()) {
-			setcookie('language', $language, time()+60*60*24*900, '/');
-		}
+		setcookie('language', $language, time()+60*60*24*900, '/');
 	}
 
 	/**
@@ -125,7 +123,7 @@ class SimpleSAML_XHTML_Template {
 	 *         languages in the header were available.
 	 */
 	private function getHTTPLanguage() {
-		$availableLanguages = $this->configuration->getArray('language.available', array('en'));
+		$availableLanguages = $this->configuration->getValue('language.available');
 		$languageScore = SimpleSAML_Utilities::getAcceptLanguage();
 
 		/* For now we only use the default language map. We may use a configurable language map
@@ -174,14 +172,14 @@ class SimpleSAML_XHTML_Template {
 	 * Returns the language default (from configuration)
 	 */
 	private function getDefaultLanguage() {
-		return $this->configuration->getString('language.default', 'en');
+		return $this->configuration->getValue('language.default', 'en');
 	}
 
 	/**
 	 * Returns a list of all available languages.
 	 */
 	private function getLanguageList() {
-		$availableLanguages = $this->configuration->getArray('language.available', array('en'));
+		$availableLanguages = $this->configuration->getValue('language.available');
 		$thisLang = $this->getLanguage();
 		$lang = array();
 		foreach ($availableLanguages AS $nl) {
@@ -223,11 +221,10 @@ class SimpleSAML_XHTML_Template {
 				$fileName = substr($name, $sepPos + 1);
 				$dictDir = SimpleSAML_Module::getModuleDir($module) . '/dictionaries/';
 			} else {
-				$dictDir = $this->configuration->getPathValue('dictionarydir', 'dictionaries/');
+				$dictDir = $this->configuration->getPathValue('dictionarydir');
 				$fileName = $name;
 			}
-			
-			$this->dictionaries[$name] = $this->readDictionaryFile($dictDir . $fileName);
+			$this->dictionaries[$name] = $this->readDictionaryFile($dictDir . $fileName . '.php');
 		}
 
 		return $this->dictionaries[$name];
@@ -252,7 +249,7 @@ class SimpleSAML_XHTML_Template {
 		}
 
 		/* Check whether we should use the default dictionary or a dictionary specified in the tag. */
-		if(substr($tag, 0, 1) === '{' && preg_match('/^{((?:\w+:)?\w+?):(.*)}$/D', $tag, $matches)) {
+		if(substr($tag, 0, 1) === '{' && preg_match('/^{((?:\w+:)?\w+?):(.*)}$/', $tag, $matches)) {
 			$dictionary = $matches[1];
 			$tag = $matches[2];
 		} else {
@@ -404,7 +401,7 @@ class SimpleSAML_XHTML_Template {
 			throw new Exception("Inline translation should be string or array. Is " . gettype($translation) . " now!");
 		}
 		
-		SimpleSAML_Logger::debug('Template: Adding inline language translation for tag [' . $tag . ']');
+		SimpleSAML_Logger::info('Template: Adding inline language translation for tag [' . $tag . ']');
 		$this->langtext[$tag] = $translation;
 	}
 	
@@ -421,66 +418,15 @@ class SimpleSAML_XHTML_Template {
 		
 		$filebase = null;
 		if (!empty($otherConfig)) {
-			$filebase = $otherConfig->getPathValue('dictionarydir', 'dictionaries/');
+			$filebase = $otherConfig->getPathValue('dictionarydir');
 		} else {
-			$filebase = $this->configuration->getPathValue('dictionarydir', 'dictionaries/');
+			$filebase = $this->configuration->getPathValue('dictionarydir');
 		}
 		
 
 		$lang = $this->readDictionaryFile($filebase . $file);
-		SimpleSAML_Logger::debug('Template: Merging language array. Loading [' . $file . ']');
+		SimpleSAML_Logger::info('Template: Merging language array. Loading [' . $file . ']');
 		$this->langtext = array_merge($this->langtext, $lang);
-	}
-
-
-	/**
-	 * Read a dictionary file in json format.
-	 *
-	 * @param string $filename  The absolute path to the dictionary file, minus the .definition.json ending.
-	 * @return array  The translation array from the file.
-	 */
-	private function readDictionaryJSON($filename) {
-		$definitionFile = $filename . '.definition.json';
-		assert('file_exists($definitionFile)');
-
-		$fileContent = file_get_contents($definitionFile);
-		$lang = json_decode($fileContent, TRUE);
-
-		if (empty($lang)) {
-			SimpleSAML_Logger::error('Invalid dictionary definition file [' . $definitionFile . ']');
-			return array();
-		}
-
-		$translationFile = $filename . '.translation.json';
-		if (file_exists($translationFile)) {
-			$fileContent = file_get_contents($translationFile);
-			$moreTrans = json_decode($fileContent, TRUE);
-			if (!empty($moreTrans)) {
-				$lang = self::lang_merge($lang, $moreTrans);
-			}
-		}
-
-		return $lang;
-	}
-
-
-	/**
-	 * Read a dictionary file in PHP format.
-	 *
-	 * @param string $filename  The absolute path to the dictionary file.
-	 * @return array  The translation array from the file.
-	 */
-	private function readDictionaryPHP($filename) {
-		$phpFile = $filename . '.php';
-		assert('file_exists($phpFile)');
-
-		$lang = NULL;
-		include($phpFile);
-		if (isset($lang)) {
-			return $lang;
-		}
-
-		return array();
 	}
 
 
@@ -493,31 +439,20 @@ class SimpleSAML_XHTML_Template {
 	private function readDictionaryFile($filename) {
 		assert('is_string($filename)');
 
-		SimpleSAML_Logger::debug('Template: Reading [' . $filename . ']');
+		SimpleSAML_Logger::info('Template: Reading [' . $filename . ']');
 
-		$jsonFile = $filename . '.definition.json';
-		if (file_exists($jsonFile)) {
-			return $this->readDictionaryJSON($filename);
+		if (!file_exists($filename)) {
+			SimpleSAML_Logger::error($_SERVER['PHP_SELF'].' - Template: Could not find template file [' . $this->template . '] at [' . $filename . ']');
+			return array();
 		}
 
-
-		$phpFile = $filename . '.php';
-		if (file_exists($phpFile)) {
-			return $this->readDictionaryPHP($filename);
+		$lang = NULL;
+		include($filename);
+		if (isset($lang)) {
+			return $lang;
 		}
 
-		SimpleSAML_Logger::error($_SERVER['PHP_SELF'].' - Template: Could not find template file [' . $this->template . '] at [' . $filename . ']');
 		return array();
-	}
-
-
-	// Merge two translation arrays.
-	public static function lang_merge($def, $lang) {
-		foreach($def AS $key => $value) {
-			if (array_key_exists($key, $lang))
-				$def[$key] = array_merge($value, $lang[$key]);
-		}
-		return $def;
 	}
 
 
@@ -558,7 +493,7 @@ class SimpleSAML_XHTML_Template {
 			$templateName = $tmp[0];
 		}
 
-		$tmp = explode(':', $this->configuration->getString('theme.use', 'default'), 2);
+		$tmp = explode(':', $this->configuration->getValue('theme.use'), 2);
 		if (count($tmp) === 2) {
 			$themeModule = $tmp[0];
 			$themeName = $tmp[1];
@@ -580,7 +515,7 @@ class SimpleSAML_XHTML_Template {
 			
 		} else {
 			/* .../templates/<theme>/<templateName> */
-			$filename = $this->configuration->getPathValue('templatedir', 'templates/') . $templateName;
+			$filename = $this->configuration->getPathValue('templatedir') . $templateName;
 		}
 
 		if (file_exists($filename)) {
@@ -589,18 +524,19 @@ class SimpleSAML_XHTML_Template {
 
 
 		/* Not found in current theme. */
-		SimpleSAML_Logger::debug($_SERVER['PHP_SELF'].' - Template: Could not find template file [' .
+		SimpleSAML_Logger::info($_SERVER['PHP_SELF'].' - Template: Could not find template file [' .
 			$template . '] at [' . $filename . '] - now trying the base template');
 
 
 		/* Try default theme. */
+		$baseTheme = $this->configuration->getValue('theme.base');
 		if ($templateModule !== 'default') {
-			/* .../module/<templateModule>/templates/<templateName> */
+			/* .../module/<templateModule>/templates/<baseTheme>/<templateName> */
 			$filename = SimpleSAML_Module::getModuleDir($templateModule) . '/templates/' . $templateName;
 			
 		} else {
-			/* .../templates/<templateName> */
-			$filename = $this->configuration->getPathValue('templatedir', 'templates/') . '/' . $templateName;
+			/* .../templates/<baseTheme>/<templateName> */
+			$filename = $this->configuration->getPathValue('templatedir') . '/' . $templateName;
 		}
 
 		if (file_exists($filename)) {

@@ -1,13 +1,18 @@
 <?php
-/**
- * SAML 1.1 SP configuration for simpleSAMLphp.
+/* 
+ * SAML 2.0 Meta data for simpleSAMLphp
  *
- * See: https://rnd.feide.no/content/sp-hosted-metadata-reference
  */
 
-/*
- * Example of hosted Shibboleth 1.3 SP.
- */
-$metadata['__DYNAMIC:1__'] = array(
-	'host' => '__DEFAULT__',
+$metadata = array(
+
+	/*
+	 * Example of hosted Shibboleth 1.3 SP.
+	 */
+	'__DYNAMIC:1__' => array(
+		'host' => '__DEFAULT__'
+	)
+
 );
+
+?>

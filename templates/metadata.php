@@ -37,9 +37,7 @@ $this->includeAtTemplateBase('includes/header.php');
 					<select name="sendtoidp">
 					<?php
 						foreach ($this->data['idpsend'] AS $entityid => $idpmeta) {
-							$name = array_key_exists('name', $idpmeta) ? $idpmeta['name'] :
-								array_key_exists('OrganizationDisplayName', $idpmeta) ? $idpmeta['OrganizationDisplayName'] :
-								$entityid;
+							$name = array_key_exists('name', $idpmeta) ? $idpmeta['name'] : $entityid;
 							echo '<option value="' . htmlspecialchars($entityid) . '">';
 							if (is_array($name)) {
 								echo htmlspecialchars($this->t($name));

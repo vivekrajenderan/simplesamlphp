@@ -33,24 +33,18 @@ class SimpleSAML_SessionHandlerPHP extends SimpleSAML_SessionHandler {
 		if(session_id() === '') {
 			$config = SimpleSAML_Configuration::getInstance();
 			
-			$cookiepath = ($config->getBoolean('session.phpsession.limitedpath', FALSE) ? '/' . $config->getBaseURL() : '/');
-			$secureFlag = $config->getBoolean('session.cookie.secure', FALSE);
-			session_set_cookie_params(0, $cookiepath, NULL, $secureFlag);
+			$cookiepath = ($config->getValue('session.phpsession.limitedpath', FALSE) ? '/' . $config->getValue('baseurlpath') : '/');
+			session_set_cookie_params(0, $cookiepath, NULL, SimpleSAML_Utilities::isHTTPS());
 			
-			$cookiename = $config->getString('session.phpsession.cookiename', NULL);
+			$cookiename = $config->getValue('session.phpsession.cookiename', NULL);
 			if (!empty($cookiename)) session_name($cookiename);
 
-			$savepath = $config->getString('session.phpsession.savepath', NULL);
+			$savepath = $config->getValue('session.phpsession.savepath', NULL);
 			if(!empty($savepath)) {
 				session_save_path($savepath);
 			}
 
 			if(!array_key_exists(session_name(), $_COOKIE)) {
-
-				if (headers_sent()) {
-					throw new SimpleSAML_Error_Exception('Cannot create new session - headers already sent.');
-				}
-
 				/* Session cookie unset - session id not set. Generate new (secure) session id. */
 				session_id(SimpleSAML_Utilities::stringToHex(SimpleSAML_Utilities::generateRandomBytes(16)));
 			}
@@ -89,7 +83,6 @@ class SimpleSAML_SessionHandlerPHP extends SimpleSAML_SessionHandler {
 		/* Check if key exists first to avoid notice-messages in the
 		 * log.
 		 */
-		if (!isset($_SESSION)) return NULL;
 		if(!array_key_exists($key, $_SESSION)) {
 			/* We should return NULL if we don't have that
 			 * key in the session.
@@ -99,21 +92,6 @@ class SimpleSAML_SessionHandlerPHP extends SimpleSAML_SessionHandler {
 
 		return $_SESSION[$key];
 	}
-
-
-	/**
-	 * Check whether the session cookie is set.
-	 *
-	 * This function will only return FALSE if is is certain that the cookie isn't set.
-	 *
-	 * @return bool  TRUE if it was set, FALSE if not.
-	 */
-	public function hasSessionCookie() {
-
-		$cookieName = session_name();
-		return array_key_exists($cookieName, $_COOKIE);
-	}
-
 }
 
 ?>

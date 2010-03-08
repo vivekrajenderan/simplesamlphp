@@ -18,7 +18,6 @@ $config = array (
 	'ticketcache' => 'ticketcache',
 
 	'attrname' => 'mail', // 'eduPersonPrincipalName',
-	#'attributes' => TRUE, // enable transfer of attributes
 	
 );
 

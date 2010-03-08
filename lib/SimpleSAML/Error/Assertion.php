@@ -7,7 +7,7 @@
  * @package simpleSAMLphp
  * @version $Id$
  */
-class SimpleSAML_Error_Assertion extends SimpleSAML_Error_Exception {
+class SimpleSAML_Error_Assertion extends SimpleSAML_Error_Error {
 
 
 	/**
@@ -28,10 +28,20 @@ class SimpleSAML_Error_Assertion extends SimpleSAML_Error_Exception {
 	public function __construct($assertion = NULL) {
 		assert('is_null($assertion) || is_string($assertion)');
 
-		$msg = 'Assertion failed: ' . var_export($assertion, TRUE);
-		parent::__construct($msg);
+		parent::__construct(array('ASSERTFAIL', '%ASSERTION%' => var_export($assertion, TRUE)));
 
 		$this->assertion = $assertion;
+	}
+
+
+	/**
+	 * Retrieve backtrace from where the assert-function was called.
+	 *
+	 * @return array  Array with a backtrace. Each element is a string which identifies a position
+	 *                in the source.
+	 */
+	public function getAssertionBacktrace() {
+		return SimpleSAML_Utilities::buildBacktrace($this, 2);
 	}
 
 
@@ -52,8 +62,8 @@ class SimpleSAML_Error_Assertion extends SimpleSAML_Error_Exception {
 	 * disabled.
 	 */
 	public static function installHandler() {
-
 		assert_options(ASSERT_WARNING,    0);
+		assert_options(ASSERT_BAIL,       0);
 		assert_options(ASSERT_QUIET_EVAL, 0);
 		assert_options(ASSERT_CALLBACK,   array('SimpleSAML_Error_Assertion', 'onAssertion'));
 	}
@@ -71,12 +81,10 @@ class SimpleSAML_Error_Assertion extends SimpleSAML_Error_Exception {
 	public static function onAssertion($file, $line, $message) {
 
 		if(!empty($message)) {
-			$exception = new self($message);
+			throw new self($message);
 		} else {
-			$exception = new self();
+			throw new self();
 		}
-
-		$exception->logError();
 	}
 
 }

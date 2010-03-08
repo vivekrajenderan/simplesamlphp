@@ -1,6 +1,7 @@
 <?php
 
 $this->data['header'] = 'OpenID Login';
+$this->data['icon'] = 'openid.png';
 $this->data['autofocus'] = 'openid-identifier';
 $this->includeAtTemplateBase('includes/header.php');
 
@@ -37,6 +38,7 @@ div.error {
 	border: 1px solid #600;
 }
 </style>
+<div id="content">
 
 
     <?php if (isset($this->data['error'])) { print "<div class=\"error\">" . $this->data['error'] . "</div>"; } ?>

@@ -28,16 +28,6 @@ abstract class sspmod_core_Auth_UserPassOrgBase extends SimpleSAML_Auth_Source {
 
 
 	/**
-	 * What way do we handle the organization as part of the username.
-	 * Three values:
-	 *  'none': Force the user to select the correct organization from the dropdown box.
-	 *  'allow': Allow the user to enter the organization as part of the username.
-	 *  'force': Remove the dropdown box.
-	 */
-	private $usernameOrgMethod;
-
-
-	/**
 	 * Constructor for this authentication source.
 	 *
 	 * All subclasses who implement their own constructor must call this constructor before
@@ -52,42 +42,6 @@ abstract class sspmod_core_Auth_UserPassOrgBase extends SimpleSAML_Auth_Source {
 
 		/* Call the parent constructor first, as required by the interface. */
 		parent::__construct($info, $config);
-
-		$this->usernameOrgMethod = 'none';
-	}
-
-
-	/**
-	 * Configure the way organizations as part of the username is handled.
-	 *
-	 * There are three possible values:
-	 * - 'none': Force the user to select the correct organization from the dropdown box.
-	 * - 'allow': Allow the user to enter the organization as part of the username.
-	 * - 'force': Remove the dropdown box.
-	 *
-	 * If unconfigured, the default is 'none'.
-	 *
-	 * @param string $usernameOrgMethod  The method which should be used.
-	 */
-	protected function setUsernameOrgMethod($usernameOrgMethod) {
-		assert('in_array($usernameOrgMethod, array("none", "allow", "force"), TRUE)');
-
-		$this->usernameOrgMethod = $usernameOrgMethod;
-	}
-
-
-	/**
-	 * Retrieve the way organizations as part of the username should be handled.
-	 *
-	 * There are three possible values:
-	 * - 'none': Force the user to select the correct organization from the dropdown box.
-	 * - 'allow': Allow the user to enter the organization as part of the username.
-	 * - 'force': Remove the dropdown box.
-	 *
-	 * @return string  The method which should be used.
-	 */
-	public function getUsernameOrgMethod() {
-		return $this->usernameOrgMethod;
 	}
 
 
@@ -173,25 +127,23 @@ abstract class sspmod_core_Auth_UserPassOrgBase extends SimpleSAML_Auth_Source {
 			throw new Exception('Could not find authentication source with id ' . $state[self::AUTHID]);
 		}
 
-		$orgMethod = $source->getUsernameOrgMethod();
-		if ($orgMethod !== 'none') {
-			$tmp = explode('@', $username, 2);
-			if (count($tmp) === 2) {
-				$username = $tmp[0];
-				$organization = $tmp[1];
-			} else {
-				if ($orgMethod === 'force') {
-					/* The organization should be a part of the username, but isn't. */
-					return 'WRONGUSERPASS';
-				}
-			}
-		}
 
 		try {
 			/* Attempt to log in. */
 			$attributes = $source->login($username, $password, $organization);
 		} catch (SimpleSAML_Error_Error $e) {
-			return $e->getErrorCode();
+			/* An error occured during login. Check if it is because of the wrong
+			 * username/password - if it is, we pass that error up to the login form,
+			 * if not, we let the generic error handler deal with it.
+			 */
+			if ($e->getErrorCode() === 'WRONGUSERPASS') {
+				return 'WRONGUSERPASS';
+			}
+
+			/* Some other error occured. Rethrow exception and let the generic error
+			 * handler deal with it.
+			 */
+			throw $e;
 		}
 
 		$state['Attributes'] = $attributes;
@@ -205,8 +157,7 @@ abstract class sspmod_core_Auth_UserPassOrgBase extends SimpleSAML_Auth_Source {
 	 * This function is used by the login form to get the available organizations.
 	 *
 	 * @param string $authStateId  The identifier of the authentication state.
-	 * @return array|NULL  Array of organizations. NULL if the user must enter the
-	 *         organization as part of the username.
+	 * @return array  Array of organizations.
 	 */
 	public static function listOrganizations($authStateId) {
 		assert('is_string($authStateId)');
@@ -219,11 +170,6 @@ abstract class sspmod_core_Auth_UserPassOrgBase extends SimpleSAML_Auth_Source {
 		$source = SimpleSAML_Auth_Source::getById($state[self::AUTHID]);
 		if ($source === NULL) {
 			throw new Exception('Could not find authentication source with id ' . $state[self::AUTHID]);
-		}
-
-		$orgMethod = $source->getUsernameOrgMethod();
-		if ($orgMethod === 'force') {
-			return NULL;
 		}
 
 		return $source->getOrganizations();

@@ -21,12 +21,11 @@ class sspmod_discopower_PowerIdPDisco extends SimpleSAML_XHTML_IdPDisco {
 	 * The constructor does the parsing of the request. If this is an invalid request, it will
 	 * throw an exception.
 	 *
-	 * @param array $metadataSets  Array with metadata sets we find remote entities in.
-	 * @param string $instance  The name of this instance of the discovery service.
+	 * @param $discoType  String which identifies the type of discovery service.
 	 */
-	public function __construct(array $metadataSets, $instance) {
+	public function __construct($discoType) {
 
-		parent::__construct($metadataSets, $instance);
+		parent::__construct($discoType);
 
 		$this->discoconfig = SimpleSAML_Configuration::getConfig('module_discopower.php');
 
@@ -42,23 +41,14 @@ class sspmod_discopower_PowerIdPDisco extends SimpleSAML_XHTML_IdPDisco {
 	 * @param $message  The message which should be logged.
 	 */
 	protected function log($message) {
-		SimpleSAML_Logger::info('PowerIdPDisco.' . $this->instance . ': ' . $message);
-	}
-	
-	
-	public static function mcmp($a, $b) {
-#		echo 'aort'; exit;
-	    if ($a['name']['en'] == $b['name']['en']) {
-	        return 0;
-	    }
-	    return ($a['name']['en'] < $b['name']['en']) ? -1 : 1;
+		SimpleSAML_Logger::info('PowerIdPDisco.' . $this->discoType['type'] . ': ' . $message);
 	}
 
 	/*
 	 * This function will structure the idp list in a hierarchy based upon the tags.
 	 */
 	protected function idplistStructured($list) {
-		# echo '<pre>'; print_r($list); exit;
+#		echo '<pre>'; print_r($list); exit;
 		$slist = array();
 		
 		$order = $this->discoconfig->getValue('taborder');
@@ -80,11 +70,6 @@ class sspmod_discopower_PowerIdPDisco extends SimpleSAML_XHTML_IdPDisco {
 				$slist[$tag][$key] = $val;
 			}
 		}
-		
-		foreach($slist AS $tab => $tbslist) {
-			uasort($slist[$tab], array('sspmod_discopower_PowerIdPDisco', 'mcmp'));
-		}
-		
 		return $slist;
 	}
 	
@@ -148,8 +133,8 @@ class sspmod_discopower_PowerIdPDisco extends SimpleSAML_XHTML_IdPDisco {
 		$idp = $this->getTargetIdp();
 		if($idp !== NULL) {
 		
-			if ($this->config->getBoolean('idpdisco.extDiscoveryStorage', NULL) != NULL) {
-				$extDiscoveryStorage = $this->config->getBoolean('idpdisco.extDiscoveryStorage');
+			if ($this->config->getValue('idpdisco.extDiscoveryStorage', NULL) != NULL) {
+				$extDiscoveryStorage = $this->config->getValue('idpdisco.extDiscoveryStorage');
 				$this->log('Choice made [' . $idp . '] (Forwarding to external discovery storage)');
 				SimpleSAML_Utilities::redirect($extDiscoveryStorage, array(
 					'entityID' => $this->spEntityId,
@@ -174,8 +159,8 @@ class sspmod_discopower_PowerIdPDisco extends SimpleSAML_XHTML_IdPDisco {
 		}
 
 		/* No choice made. Show discovery service page. */
-		$idpList = $this->getIdPList();
-		$idpList = $this->idplistStructured($this->filterList($idpList));
+
+		$idpList = $this->idplistStructured($this->filterList($this->metadata->getList($this->discoType['metadata'])));
 		$preferredIdP = $this->getRecommendedIdP();
 
 		$t = new SimpleSAML_XHTML_Template($this->config, 'discopower:disco-tpl.php', 'disco');
@@ -188,7 +173,6 @@ class sspmod_discopower_PowerIdPDisco extends SimpleSAML_XHTML_IdPDisco {
 		$t->data['rememberenabled'] = $this->config->getBoolean('idpdisco.enableremember', FALSE);
 		$t->data['rememberchecked'] = $this->config->getBoolean('idpdisco.rememberchecked', FALSE);
 		$t->data['defaulttab'] = $this->discoconfig->getValue('defaulttab', 0);
-		$t->data['score'] = $this->discoconfig->getValue('score', 'quicksilver');
 		$t->show();
 	}
 }

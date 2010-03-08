@@ -53,6 +53,7 @@ span.showhide {
 }
 </style>
 	
+	<div id="content">
 
 		<!-- <h2><?php if (isset($this->data['header'])) { echo $this->t($this->data['header']); } else { echo "Some error occured"; } ?></h2> -->
 	    <h2><?php echo $this->t('consentadmin_header') ?></h2>	
@@ -75,8 +76,8 @@ span.showhide {
 			foreach ($spList AS $spName => $spValues) {
 				$this->includeInlineTranslation('spname', $spValues['name']);
 				$this->includeInlineTranslation('spdescription', $spValues['description']);
-				$htmlSpName = $this->t('spname', array(), false, true);
-				$spDescription = $this->t('spdescription',array(), false, true);
+				$htmlSpName = htmlspecialchars($this->t('spname', array(), false, true) );
+				$spDescription = htmlspecialchars($this->t('spdescription',array(), false, true));
 				$checkedAttr = $spValues['consentStatus'] == 'ok' ? "checked='yes'" : "";
 				$consentValue = $spValues['consentValue'];
 				$consentText = $spValues['consentStatus'] == 'changed' ? "attributes has changed" : "";
@@ -90,10 +91,7 @@ span.showhide {
 	  <tr><td colspan="2" class="caAttributes"><div id="attributes_$show_spid" style="display: none;">
 TRSTART;
 				$attributes = $spValues['attributes_by_sp'];
-				if ($this->data['showDescription']) {
-                    echo '<p>' . $this->t('consentadmin_purpose') . ' ' . $spDescription . '</p>';
-                }
-                echo "\n<ul>\n";
+				echo "\n<ul>\n";
 				foreach ($attributes AS $name => $value) {
 
 				if (isset($this->data['attribute_' . htmlspecialchars(strtolower($name)) ])) {
@@ -129,6 +127,6 @@ TRSTART;
 		
 		<h2>Logout</h2>
 
-			<p><a href="<?php echo SimpleSAML_Utilities::selfURL() . '?logout'; ?>">Logout</a></p>
+			<p><?php echo $this->data['logout']; ?></p>
 		
 <?php $this->includeAtTemplateBase('includes/footer.php'); ?>

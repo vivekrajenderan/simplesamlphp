@@ -1,21 +1,22 @@
 SP remote metadata reference
 ============================
 
-<!-- {{TOC}} -->
-
 This is a reference for metadata options available for
 `metadata/saml20-sp-remote.php` and `metadata/shib13-sp-remote.php`.
 Both files have the following format:
 
     <?php
-    /* The index of the array is the entity ID of this SP. */
-    $metadata['entity-id-1'] = array(
-        /* Configuration options for the first SP. */
+    $metadata = array(
+        /* The index of the array is the entity ID of this SP. */
+        'entity-id-1' => array(
+            /* Configuration options for the first SP. */
+        ),
+        'entity-id-2' => array(
+            /* Configuration options for the second SP. */
+        ),
+        /* ... */
     );
-    $metadata['entity-id-2'] = array(
-        /* Configuration options for the second SP. */
-    );
-    /* ... */
+    ?>
 
 
 Common options
@@ -32,7 +33,7 @@ and Shibboleth 1.3 protocol:
 
 `authproc`
 :   Used to manipulate attributes, and limit access for each SP. See
-    the [authentication processing filter manual](simplesamlphp-authproc).
+    the [authentication processing filter manual](http://rnd.feide.no/content/authentication-processing-filters-simplesamlphp).
 
 `base64attributes`
 :   Whether attributes sent to this SP should be base64 encoded. The
@@ -47,9 +48,7 @@ and Shibboleth 1.3 protocol:
 
 `name`
 :   The name of this SP. Will be used by various modules when they need
-    to show a name of the SP to the user.
-
-:   If this option is unset, the organization name will be used instead (if it is available).
+    to show a name of the SP to the user.</p>
 
 :   This option can be translated into multiple languages by specifying
     the value as an array of language-code to translated name:
@@ -58,35 +57,6 @@ and Shibboleth 1.3 protocol:
             'en' => 'A service',
             'no' => 'En tjeneste',
         ),
-
-`OrganizationName`
-:   The name of the organization responsible for this SPP.
-    This name does not need to be suitable for display to end users.
-
-:   This option can be translated into multiple languages by specifying the value as an array of language-code to translated name:
-
-        'OrganizationName' => array(
-            'en' => 'Example organization',
-            'no' => 'Eksempel organisation',
-        ),
-
-:   *Note*: If you specify this option, you must also specify the `OrganizationURL` option.
-
-`OrganizationDisplayName`
-:   The name of the organization responsible for this IdP.
-    This name must be suitable for display to end users.
-    If this option isn't specified, `OrganizationName` will be used instead.
-
-:   This option can be translated into multiple languages by specifying the value as an array of language-code to translated name.
-
-:   *Note*: If you specify this option, you must also specify the `OrganizationName` option.
-
-`OrganizationURL`
-:   An URL the end user can access for more information about the organization.
-
-:   This option can be translated into multiple languages by specifying the value as an array of language-code to translated URL.
-
-:   *Note*: If you specify this option, you must also specify the `OrganizationName` option.
 
 `privacypolicy`
 :   This is an absolute URL for where an user can find a privacypolicy
@@ -177,11 +147,6 @@ The following SAML 2.0 options are available:
     this SP. If the option isn't specified, this SP will not be logged
     out automatically when a single logout operation is initialized.
 
-`SingleLogoutServiceResponse`
-:   The URL logout responses to this SP should be sent. If this option
-    is unspecified, the `SingleLogoutService` endpoint will be used as
-    the recipient of logout responses.
-
 `SPNameQualifier`
 :   SP NameQualifier for this SP. If not set, the IdP will set the
     SPNameQualifier to be the SP entity ID.
@@ -193,19 +158,14 @@ The following SAML 2.0 options are available:
     (if `assertion.encryption` is set to TRUE and `sharedkey` is
     unset.)
 
-`saml20.sign.response`
-:   Whether `<samlp:Response> messages should be signed.
-    Defaults to `TRUE`.
-
-:   Note that this option also exists in the IdP-hosted metadata.
-    The value in the SP-remote metadata overrides the value in the IdP-hosted metadata.
-
-`saml20.sign.assertion`
-:   Whether `<saml:Assertion> elements should be signed.
-    Defaults to `TRUE`.
-
-:   Note that this option also exists in the IdP-hosted metadata.
-    The value in the SP-remote metadata overrides the value in the IdP-hosted metadata.
+`signresponse`
+:   The default behaviour of simpleSAMLphp is to sign the Assertion
+    element in the SAML 2.0 response sent to SPs. This option allows
+    you to override this behaviour on a per SP basis. Set this to
+    `TRUE` to sign the Response element. `FALSE` will make the SP sign
+    the Assertion. If this option is unset, the value from
+    `saml2.signresponse` in `config.php` will be used. That value is
+    `FALSE` by default.
 
 `simplesaml.nameidattribute`
 :   When the value of the `NameIDFormat`-option is set to either
@@ -218,21 +178,6 @@ The following SAML 2.0 options are available:
 `simplesaml.attributes`
 :   Whether the SP should receive any attributes from the IdP. The
     default value is `TRUE`.
-
-`attributeencodings`
-:   What encoding should be used for the different attributes. This is
-    an array which maps attribute names to attribute encodings. There
-    are three different encodings:
-
-:   -   `string`: Will include the attribute as a normal string. This is
-        the default.
-
-:   -   `base64`: Store the attribute as a base64 encoded string. This
-        is the default when the `base64attributes`-option is set to
-        `TRUE`.
-
-:   -   `raw`: Store the attribute without any modifications. This
-        makes it possible to include raw XML in the response.
 
 
 ### Encrypting assertions
@@ -249,10 +194,6 @@ of the SP.
 `assertion.encryption`
 :   Whether assertions sent to this SP should be encrypted. The default
     value is `FALSE`.
-
-:   Note that this option also exists in the IdP-hosted metadata. This
-    entry in the SP-remote metadata overrides the option in the
-    IdP-hosted metadata.
 
 `sharedkey`
 :   Symmetric key which should be used for encryption. This should be a
@@ -283,24 +224,6 @@ These options overrides the options set in `saml20-idp-hosted`.
     'redirect.validate' => TRUE,
     'certificate' => 'server.crt',
 
-### Fields for scoping
-
-Only relevant if you are a proxy/bridge and wants to limit the idps this
-sp can use.
-
-`IDPList`
-: The list of scoped idps ie. the list of entityids for idps that are
-relevant for this sp. The final list is the concatenation of the list
-given as parameter to InitSSO (at the sp), the list configured at the
-sp and the list configured at the ipd (here) for this sp. The intersection
-of the final list and the idps configured at the at this idp will be
-presented to the user at the discovery service if neccessary. If only one 
-idp is in the intersection the discoveryservice will go directly to the idp.
-
-**Example: Configuration for scoping**
-
-     'IDPList' => array('https://idp1.wayf.dk', 'https://idp2.wayf.dk'),
-     
 
 Shibboleth 1.3 options
 ----------------------

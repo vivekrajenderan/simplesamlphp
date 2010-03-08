@@ -51,7 +51,7 @@ function finishLogin($authProcState) {
 
 SimpleSAML_Logger::info('SAML2.0 - SP.AssertionConsumerService: Accessing SAML 2.0 SP endpoint AssertionConsumerService');
 
-if (!$config->getBoolean('enable.saml20-sp', TRUE))
+if (!$config->getValue('enable.saml20-sp', false))
 	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOACCESS');
 
 if (array_key_exists(SimpleSAML_Auth_ProcessingChain::AUTHPARAM, $_REQUEST)) {
@@ -63,38 +63,31 @@ if (array_key_exists(SimpleSAML_Auth_ProcessingChain::AUTHPARAM, $_REQUEST)) {
 }
 
 
-if (empty($_REQUEST['SAMLResponse']))
+if (empty($_POST['SAMLResponse'])) 
 	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'ACSPARAMS', $exception);
 
 	
 try {
-
-	$b = SAML2_Binding::getCurrentBinding();
-	$response = $b->receive();
-	if (!($response instanceof SAML2_Response)) {
-		throw new SimpleSAML_Error_BadRequest('Invalid message received to AssertionConsumerService endpoint.');
-	}
-
-	$idp = $response->getIssuer();
-	if ($idp === NULL) {
-		throw new Exception('Missing <saml:Issuer> in message delivered to AssertionConsumerService.');
-	}
-
-	$metadataHandler = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
-	$sp = $metadataHandler->getMetaDataCurrentEntityID();
-
-	$idpMetadata = $metadataHandler->getMetaDataConfig($idp, 'saml20-idp-remote');
-	$spMetadata = $metadataHandler->getMetaDataConfig($sp, 'saml20-sp-hosted');
+	
+	$metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
+	$spmetadata = $metadata->getMetaDataCurrent();
+	
+	$binding = new SimpleSAML_Bindings_SAML20_HTTPPost($config, $metadata);
+	$authnResponse = $binding->decodeResponse($_POST);
+	
+	$result = $authnResponse->process();
 
 	/* Fetch the request information if it exists, fall back to RelayState if not. */
-	$requestId = $response->getInResponseTo();
+	$requestId = $authnResponse->getInResponseTo();
 	$info = $session->getData('SAML2:SP:SSO:Info', $requestId);
 	if($info === NULL) {
 		/* Fall back to RelayState. */
 		$info = array();
-		$info['RelayState'] = $response->getRelayState();
+		$info['RelayState'] = $authnResponse->getRelayState();
 		if(empty($info['RelayState'])) {
-			$info['RelayState'] = $spMetadata->getString('RelayState', NULL);
+			if (array_key_exists('RelayState', $spmetadata)) {
+				$info['RelayState'] = $spmetadata['RelayState'];
+			}
 		}
 		if(empty($info['RelayState'])) {
 			/* RelayState missing. */
@@ -102,50 +95,67 @@ try {
 		}
 	}
 
-
-	try {
-		$assertion = sspmod_saml2_Message::processResponse($spMetadata, $idpMetadata, $response);
-	} catch (sspmod_saml2_Error $e) {
-		/* The status of the response wasn't "success". */
-
-		$status = $response->getStatus();
+	/* Check status code, call OnError handler on error. */
+	if($result === FALSE) {
+		/* Not successful. */
+		$statusCode = $authnResponse->findstatus();
 		if(array_key_exists('OnError', $info)) {
 			/* We have an error handler. Return the error to it. */
-			SimpleSAML_Utilities::redirect($info['OnError'], array('StatusCode' => $status['Code']));
+			SimpleSAML_Utilities::redirect($info['OnError'], array('StatusCode' => $statusCode));
+		} else {
+			/* We don't have an error handler. Show an error page. */
+			SimpleSAML_Utilities::fatalError($session->getTrackID(), 'RESPONSESTATUSNOSUCCESS',
+				new Exception("Status = " . $statusCode));
 		}
-
-		/* We don't have an error handler. Show an error page. */
-		SimpleSAML_Utilities::fatalError($session->getTrackID(), 'RESPONSESTATUSNOSUCCESS', $e);
 	}
 
+	/* Successful authentication. */
 
 	SimpleSAML_Logger::info('SAML2.0 - SP.AssertionConsumerService: Successful response from IdP');
 
+	/* The response should include the entity id of the IdP. */
+	$idpentityid = $authnResponse->getIssuer();
+	
+	$idpmetadata = $metadata->getMetaData($idpentityid, 'saml20-idp-remote');
+
+	
+	
 	/*
 	 * Attribute handling
 	 */
-	$attributes = $assertion->getAttributes();
+	$attributes = $authnResponse->getAttributes();
 
-	SimpleSAML_Logger::stats('saml20-sp-SSO ' . $metadataHandler->getMetaDataCurrentEntityID() . ' ' . $idp . ' NA');
+	/**
+	 * Make a log entry in the statistics for this SSO login.
+     *
+     * Needs to be replaced by auth proc
+     *
+	$tempattr = $authnResponse->getAttributes();
+	$realmattr = $config->getValue('statistics.realmattr', null);
+	$realmstr = 'NA';
+	if (!empty($realmattr)) {
+		if (array_key_exists($realmattr, $tempattr) && is_array($tempattr[$realmattr]) ) {
+			$realmstr = $tempattr[$realmattr][0];
+		} else {
+			SimpleSAML_Logger::warning('Could not get realm attribute to log [' . $realmattr. ']');
+		}
+	} 
+	*/
+	SimpleSAML_Logger::stats('saml20-sp-SSO ' . $metadata->getMetaDataCurrentEntityID() . ' ' . $idpentityid . ' NA');
 	
-
-	$nameId = $assertion->getNameId();
 
 	/* Begin module attribute processing */
 
-	$spMetadataArray = $spMetadata->toArray();
-	$idpMetadataArray = $idpMetadata->toArray();
-
-	$pc = new SimpleSAML_Auth_ProcessingChain($idpMetadataArray, $spMetadataArray, 'sp');
+	$pc = new SimpleSAML_Auth_ProcessingChain($idpmetadata, $spmetadata, 'sp');
 
 	$authProcState = array(
-		'core:saml20-sp:NameID' => $nameId,
-		'core:saml20-sp:SessionIndex' => $assertion->getSessionIndex(),
+		'core:saml20-sp:NameID' => $authnResponse->getNameID(),
+		'core:saml20-sp:SessionIndex' => $authnResponse->getSessionIndex(),
 		'core:saml20-sp:TargetURL' => $info['RelayState'],
 		'ReturnURL' => SimpleSAML_Utilities::selfURLNoQuery(),
 		'Attributes' => $attributes,
-		'Destination' => $spMetadataArray,
-		'Source' => $idpMetadataArray,
+		'Destination' => $spmetadata,
+		'Source' => $idpmetadata,
 	);
 
 	$pc->processState($authProcState);

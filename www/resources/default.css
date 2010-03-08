@@ -107,7 +107,7 @@ dt {
 }
 
 #header {
-	background: #666 url("header-bkg.png") repeat-x 0 100%;
+	background: #666 url("sprites.gif") repeat-x 0 100%;
 	margin: 0px;
 	padding: 0 0 8px;
 }
@@ -233,7 +233,7 @@ dl dd {
 
 div.caution {
 	background-color:  #FF9;
-	background-image: url('icons/experience/gtk-dialog-warning.48x48.png');
+	background-image: url('icons/caution.png');
 	background-repeat: no-repeat;
 	border: thin solid #444;
 	padding: .2em .2em .2em 60px;
@@ -326,8 +326,4 @@ div#confirmation {
 	border: 1px solid #aaa;
 	background: #eee;
 	padding: .6em 1em .1em 1em;
-}
-
-caption {
-	display: none;
 }

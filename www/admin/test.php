@@ -3,9 +3,6 @@
 /**
  * This file defines a webpage that can be used to test interaction between this SP and a selected IdP.
  *
- * Note: This page is deprecated in favor of the autotest module. It will be
- * removed in a future version of simpleSAMLphp.
- *
  * It has several query parameters:
  * - 'op': The operation.
  *   - 'login' Initialize login.
@@ -67,7 +64,7 @@ if (array_key_exists('protocol', $_GET)) {
 $attr_test = array();
 
 foreach ($_GET as $k => $v) {
-	if(preg_match('/^attr_test(?:_\d+)?$/D', $k)) {
+	if(preg_match('/^attr_test(?:_\d+)?$/', $k)) {
 		$pos = strpos($v, ':');
 		if($pos === FALSE) {
 			error('Invalid attribute test: $v');

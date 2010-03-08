@@ -3,7 +3,7 @@ $this->data['header'] = 'SimpleSAMLphp Statistics';
 
 $this->data['jquery'] = array('version' => '1.6', 'core' => TRUE, 'ui' => TRUE, 'css' => TRUE);
 
-// $this->data['hideLanguageBar'] = TRUE;
+$this->data['hideLanguageBar'] = TRUE;
 
 $this->data['head'] ='';
 $this->data['head'] .= '<script type="text/javascript">
@@ -12,36 +12,8 @@ $(document).ready(function() {
 });
 </script>';
 
+
 $this->includeAtTemplateBase('includes/header.php');
-
-
-function getBaseURL($t, $type = 'get', $key = NULL, $value = NULL) {
-	$vars = array(
-		'rule' => $t->data['selected.rule'],
-		'time' => $t->data['selected.time'],
-		'res' => $t->data['selected.timeres'],
-	);
-	if (isset($t->data['selected.delimiter'])) $vars['d'] = $t->data['selected.delimiter'];
-	if (!empty($t->data['selected.rule2']) && $t->data['selected.rule2'] !== '_') $vars['rule2'] = $t->data['selected.rule2'];
-	
-	if (isset($key)) {
-		if (isset($vars[$key])) unset($vars[$key]);
-		if (isset($value)) $vars[$key] = $value;
-	}
-
-	if ($type === 'get') {
-		return 'showstats.php?' . http_build_query($vars, '', '&amp;');
-	} else {
-		$text = '';
-		foreach($vars AS $k => $v) {
-			$text .= '<input type="hidden" name="' . $k . '" value="'. htmlspecialchars($v) . '" />' . "\n";
-		}
-		return $text;
-	}
-	
-}
-
-
 
 ?>
 
@@ -77,35 +49,23 @@ div#content {
 div.corner_t {
     max-width: none ! important;
 }
-table.timeseries tr.odd td {
-	background-color: #f4f4f4;
-}
-table.timeseries td {
-	padding-right: 2em; border: 1px solid #ccc
-}
-td.datacontent {
-	text-align: right;
-}
+
 	</style>
 
 <?php
 echo('<h1>'. $this->data['available.rules'][$this->data['selected.rule']]['name'] . '</h1>');
 echo('<p>' . $this->data['available.rules'][$this->data['selected.rule']]['descr'] . '</p>');
 
-// echo('<pre>');
-// print_r($this->data);
-// exit;
+
 
 
 // Report settings
 echo '<table class="selecttime" style="width: 100%; border: 1px solid #ccc; background: #eee; margin: 1px 0px; padding: 0px">';
-echo('<tr><td style="width: 50px; padding: 0px"><img style="margin: 0px" src="../../resources/icons/crystal_project/kchart.32x32.png" alt="Report settings" /></td>');
+echo('<tr><td style="width: 50px; padding: 0px"><img style="margin: 0px" src="' . SimpleSAML_Module::getModuleURL("statistics/resources/report.png") . '" alt="Report settings" /></td>');
 
 // Select report
 echo '<td>';
-echo '<form style="display: inline">';
-echo getBaseURL($this, 'post', 'rule');
-echo '<select onChange="submit();" name="rule">';
+echo '<form style="display: inline"><select onChange="submit();" name="rule">';
 foreach ($this->data['available.rules'] AS $key => $rule) {
 	if ($key === $this->data['selected.rule']) {
 		echo '<option selected="selected" value="' . $key . '">' . $rule['name'] . '</option>';
@@ -123,7 +83,8 @@ echo '<td style="text-align: right">';
 #echo('<pre>here'); print_r($this->data['delimiterPresentation']); echo('</pre>');
 
 echo '<form style="display: inline">';
-echo getBaseURL($this, 'post', 'd');
+echo '<input type="hidden" name="rule" value="' . $this->data['selected.rule'] . '" />';
+echo '<input type="hidden" name="time" value="' . $this->data['selected.time'] . '" />';
 echo '<select onChange="submit();" name="d">';
 foreach ($this->data['availdelimiters'] AS $key => $delim) {
 
@@ -132,7 +93,7 @@ foreach ($this->data['availdelimiters'] AS $key => $delim) {
 
 	if ($key == '_') {
 		echo '<option value="_">Total</option>';
-	} elseif (isset($_REQUEST['d']) && $delim == $_REQUEST['d']) {
+	} elseif ($delim == $_REQUEST['d']) {
 		echo '<option selected="selected" value="' . htmlentities($delim) . '">' . htmlspecialchars($delimName) . '</option>';
 	} else {
 		echo '<option  value="' . htmlentities($delim) . '">' . htmlspecialchars($delimName) . '</option>';
@@ -150,41 +111,17 @@ echo '</table>';
 
 // Select time and date
 echo '<table class="selecttime" style="width: 100%; border: 1px solid #ccc; background: #eee; margin: 1px 0px; padding: 0px">';
-echo('<tr><td style="width: 50px; padding: 0px"><img style="margin: 0px" src="../../resources/icons/crystal_project/date.32x32.png" alt="Select date and time" /></td>');
-
-
-
-
-
+echo('<tr><td style="width: 50px; padding: 0px"><img style="margin: 0px" src="' . SimpleSAML_Module::getModuleURL("statistics/resources/calendar.png") . '" alt="Select date and time" /></td>');
 
 if (isset($this->data['available.times.prev'])) {
-
-	echo('<td style=""><a href="' . getBaseURL($this, 'get', 'time', $this->data['available.times.prev']) . '">« Previous</a></td>');
+	echo('<td style=""><a href="showstats.php?rule=' . $this->data['selected.rule']. '&amp;time=' . $this->data['available.times.prev'] . '">« Previous</a></td>');
 } else {
 	echo('<td style="color: #ccc">« Previous</td>');
 }
 
-
-echo '<td style="text-align: right">';
+echo '<td style="text-align: center">';
 echo '<form style="display: inline">';
-echo getBaseURL($this, 'post', 'res');
-// echo '<input type="hidden" name="rule" value="' . $this->data['selected.rule'] . '" />';
-echo '<select onChange="submit();" name="res">';
-foreach ($this->data['available.timeres'] AS $key => $timeresname) {
-	if ($key == $this->data['selected.timeres']) {
-		echo '<option selected="selected" value="' . $key . '">' . $timeresname . '</option>';
-	} else {
-		echo '<option  value="' . $key . '">' . $timeresname . '</option>';
-	}
-}
-echo '</select></form>';
-echo '</td>';
-
-
-echo '<td style="text-align: left">';
-echo '<form style="display: inline">';
-echo getBaseURL($this, 'post', 'time');
-// echo '<input type="hidden" name="rule" value="' . $this->data['selected.rule'] . '" />';
+echo '<input type="hidden" name="rule" value="' . $this->data['selected.rule'] . '" />';
 echo '<select onChange="submit();" name="time">';
 foreach ($this->data['available.times'] AS $key => $timedescr) {
 	if ($key == $this->data['selected.time']) {
@@ -197,7 +134,7 @@ echo '</select></form>';
 echo '</td>';
 
 if (isset($this->data['available.times.next'])) {
-	echo('<td style="text-align: right; padding-right: 4px"><a href="' . getBaseURL($this, 'get', 'time', $this->data['available.times.next']) . '">Next »</a></td>');
+	echo('<td style="text-align: right; padding-right: 4px"><a href="showstats.php?rule=' . $this->data['selected.rule']. '&amp;time=' . $this->data['available.times.next'] . '">Next »</a></td>');
 } else {
 	echo('<td style="color: #ccc; text-align: right; padding-right: 4px">Next »</td>');
 }
@@ -225,22 +162,6 @@ echo '
 
 echo '<img src="' . htmlspecialchars($this->data['imgurl']) . '" />';
 
-
-echo '<form style="display: inline">';
-echo('<p style="text-align: right">Compare with total from this dataset ');
-echo getBaseURL($this, 'post', 'rule2');
-echo '<select onChange="submit();" name="rule2">';
-echo '	<option value="_">None</option>';
-foreach ($this->data['available.rules'] AS $key => $rule) {
-	if ($key === $this->data['selected.rule2']) {
-		echo '<option selected="selected" value="' . $key . '">' . $rule['name'] . '</option>';
-	} else {
-		echo '<option value="' . $key . '">' . $rule['name'] . '</option>';
-	}
-}
-echo '</select></form>';
-
-
 echo '</div>'; # end graph content.
 
 
@@ -249,63 +170,43 @@ echo '</div>'; # end graph content.
  * Handle table view - - - - - - 
  */
 $classint = array('odd', 'even'); $i = 0;
-echo '<div id="table" class="tabset_content">';
+echo '<div id="table" class="tabset_content">
 
-if (isset($this->data['pieimgurl'])) {
-	echo('<img src="' . $this->data['pieimgurl'] . '" />');
-}
-echo '<table class="tableview"><tr><th class="value">Value</th><th class="category">Data range</th>';
-
+<table class="tableview"><tr><th class="value">Value</th><th class="category">Data range</th>';
 foreach ( $this->data['summaryDataset'] as $key => $value ) {
 	$clint = $classint[$i++ % 2];
 	
 	$keyName = $key;
 	if(array_key_exists($key, $this->data['delimiterPresentation'])) $keyName = $this->data['delimiterPresentation'][$key];
 
+	
+	
 	if ($key === '_') {
 	    echo '<tr class="total '  . $clint . '"><td  class="value">' . $value . '</td><td class="category">' . $keyName . '</td></tr>';
     } else {
 	    echo '<tr class="' . $clint . '"><td  class="value">' . $value . '</td><td class="category">' . $keyName . '</td></tr>';
     }
 }
-
 echo '</table></div>';
 //  - - - - - - - End table view - - - - - - - 
 
 
-// 
-//  echo('<pre>');
-// print_r($this->data['results']);
-// exit;
+
+ 
+ 
 
 
 echo '<div id="debug" >';
 
+
+
 #echo $this->data['selected.time'];
+
 #echo '<input style="width: 80%" value="' . htmlspecialchars($this->data['imgurl']) . '" />';
 
-echo '<table class="timeseries" style="">';
-echo('<tr><th>Time</th><th>Total</th>');
-foreach($this->data['topdelimiters'] AS $key) {
-	$keyName = $key;
-	if(array_key_exists($key, $this->data['delimiterPresentation'])) $keyName = $this->data['delimiterPresentation'][$key];
- 	echo('<th>' . $keyName . '</th>');
-}
-echo('</tr>');
-
-
-$i = 0;
-foreach ($this->data['debugdata'] AS $slot => $dd) {
-	echo('<tr class="' . ((++$i % 2) == 0 ? 'odd' : 'even') . '">');
-	echo('<td style="">' . $dd[0] . '</td>');	
-	echo('<td class="datacontent">' . $dd[1] . '</td>');
-
-	foreach($this->data['topdelimiters'] AS $key) {
-		echo('<td class="datacontent">' . 
-			(array_key_exists($key, $this->data['results'][$slot]) ? $this->data['results'][$slot][$key] : '&nbsp;') . 
-			'</td>');
-	}
-	echo('</tr>');
+echo '<table style="">';
+foreach ($this->data['debugdata'] AS $dd) {
+	echo '<tr><td style="padding-right: 2em; border: 1px solid #ccc">' . $dd[0] . '</td><td style="padding-right: 2em; border: 1px solid #ccc">' . $dd[1] . '</td></tr>';
 }
 echo '</table>';
 

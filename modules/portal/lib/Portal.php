@@ -21,7 +21,6 @@ class sspmod_portal_Portal {
 	}
 	
 	function isPortalized($thispage) {
-		
 		foreach($this->config AS $set) {
 			if (in_array($thispage, $set)) {
 				return TRUE;

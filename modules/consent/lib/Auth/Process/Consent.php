@@ -73,14 +73,6 @@ class sspmod_consent_Auth_Process_Consent extends SimpleSAML_Auth_ProcessingFilt
 
 
 	/**
-	 * List of attributes where the value should be hidden by default.
-	 *
-	 * @var array
-	 */
-	private $hiddenAttributes;
-
-
-	/**
 	 * Initialize consent filter.
 	 *
 	 * This is the constructor for the consent filter. It validates and parses the configuration.
@@ -119,12 +111,7 @@ class sspmod_consent_Auth_Process_Consent extends SimpleSAML_Auth_ProcessingFilt
 				SimpleSAML_Logger::error('Consent - constructor() : Could not create consent storage: ' . $e->getMessage());
 			}
 		} 
-
-		if (array_key_exists('hiddenAttributes', $config)) {
-			$this->hiddenAttributes = $config['hiddenAttributes'];
-		} else {
-			$this->hiddenAttributes = array();
-		}
+		
 
 	}
 
@@ -159,16 +146,11 @@ class sspmod_consent_Auth_Process_Consent extends SimpleSAML_Auth_ProcessingFilt
 		}
 		
 		if ($this->store !== NULL) {
-            // Do not use consent if disabled on source entity 
-            if(isset($state['Source']['consent.disable']) && in_array($state['Destination']['entityid'], $state['Source']['consent.disable'])) {
-                SimpleSAML_Logger::debug('Consent - Consent disabled for entity ' . $state['Destination']['entityid']);
-                return;
-            }
 
 			$source = $state['Source']['metadata-set'] . '|' . $state['Source']['entityid'];
 			$destination = $state['Destination']['metadata-set'] . '|' . $state['Destination']['entityid'];
-			
-            SimpleSAML_Logger::debug('Consent - userid : ' . $state['UserID']);
+
+			SimpleSAML_Logger::debug('Consent - userid : ' . $state['UserID']);
 			SimpleSAML_Logger::debug('Consent - source : ' . $source);
 			SimpleSAML_Logger::debug('Consent - destination : ' . $destination);
 	
@@ -197,11 +179,10 @@ class sspmod_consent_Auth_Process_Consent extends SimpleSAML_Auth_ProcessingFilt
 
 		$state['consent:focus'] = $this->focus;
 		$state['consent:checked'] = $this->checked;
-		$state['consent:hiddenAttributes'] = $this->hiddenAttributes;
 
 		/* User interaction nessesary. Throw exception on isPassive request */	
 		if (isset($state['isPassive']) && $state['isPassive'] == TRUE) {
-			throw new SimpleSAML_Error_NoPassive('Unable to give consent on passive request.');
+			throw new SimpleSAML_Error_NoPassive('noPassive');
 		}
 
 		/* Save state and redirect. */

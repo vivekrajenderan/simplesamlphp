@@ -37,10 +37,9 @@ try {
 	$ticketcontent = retrieveTicket($ticket, $path);
 	
 	$usernamefield = $casconfig->getValue('attrname', 'eduPersonPrincipalName');
-	$dosendattributes = $casconfig->getValue('attributes', FALSE);;
 	
 	if (array_key_exists($usernamefield, $ticketcontent)) {
-		returnResponse('YES', $ticketcontent[$usernamefield][0], $dosendattributes ? $ticketcontent : array());
+		returnResponse('YES', $ticketcontent[$usernamefield][0]);
 	} else {
 		returnResponse('NO');
 	}
@@ -50,21 +49,12 @@ try {
 	returnResponse('NO', $e->getMessage());
 }
 
-function returnResponse($value, $content = '', $attributes = array()) {
+function returnResponse($value, $content = '') {
 	if ($value === 'YES') {
-		$attributesxml = "";
-		foreach ($attributes as $attributename => $attributelist) {
-			$attr = htmlentities($attributename);
-			foreach ($attributelist as $attributevalue) {
-				$attributesxml .= "<cas:$attr>" . htmlentities($attributevalue) . "</cas:$attr>\n";
-			}
-		}
-		if (sizeof($attributes)) $attributesxml = '<cas:attributes>' . $attributesxml . '</cas:attributes>';
 		echo '<cas:serviceResponse xmlns:cas="http://www.yale.edu/tp/cas">
     <cas:authenticationSuccess>
-	<cas:user>' . htmlentities($content) . '</cas:user>' .
-	$attributesxml .
-    '</cas:authenticationSuccess>
+	<cas:user>' . htmlentities($content) . '</cas:user>
+    </cas:authenticationSuccess>
 </cas:serviceResponse>';
 
 	} else {
@@ -91,7 +81,7 @@ function storeTicket($ticket, $path, &$value ) {
 
 function retrieveTicket($ticket, $path) {
 
-	if (!preg_match('/^_?[a-zA-Z0-9]+$/D', $ticket)) throw new Exception('Invalid characters in ticket');
+	if (!preg_match('/^_?[a-zA-Z0-9]+$/', $ticket)) throw new Exception('Invalid characters in ticket');
 
 	if (!is_dir($path)) 
 		throw new Exception('Directory for CAS Server ticket storage [' . $path . '] does not exists. ');

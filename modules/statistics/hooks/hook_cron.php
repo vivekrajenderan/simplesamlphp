@@ -14,23 +14,16 @@ function statistics_hook_cron(&$croninfo) {
 	if (is_null($statconfig->getValue('cron_tag', NULL))) return;
 	if ($statconfig->getValue('cron_tag', NULL) !== $croninfo['tag']) return;
 	
-	$maxtime = $statconfig->getInteger('time_limit', NULL);
-	if($maxtime){
-		set_time_limit($maxtime);
-	}
-	
 	try {
 		$aggregator = new sspmod_statistics_Aggregator();
 		$results = $aggregator->aggregate();
 		if (empty($results)) {
-			SimpleSAML_Logger::notice('Output from statistics aggregator was empty.');
+			$croninfo['summary'][] = 'Output from statistics aggregator was empty.';
 		} else {
 			$aggregator->store($results);
 		}
 	} catch (Exception $e) {
-		$message = 'Loganalyzer threw exception: ' . $e->getMessage();
-		SimpleSAML_Logger::warning($message);
-		$croninfo['summary'][] = $message;
+		$croninfo['summary'][] = 'Loganalyzer threw exception: ' . $e->getMessage();
 	}
 }
 ?>

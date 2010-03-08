@@ -10,12 +10,13 @@
  * @access private
  * @package OpenID
  * @author JanRain, Inc. <openid@janrain.com>
- * @copyright 2005-2008 Janrain, Inc.
- * @license http://www.apache.org/licenses/LICENSE-2.0 Apache
+ * @copyright 2005 Janrain, Inc.
+ * @license http://www.gnu.org/copyleft/lesser.html LGPL
  */
 
 require_once 'Auth/OpenID.php';
 require_once 'Auth/OpenID/BigMath.php';
+require_once 'Auth/OpenID/HMACSHA1.php';
 
 function Auth_OpenID_getDefaultMod()
 {
@@ -89,6 +90,27 @@ class Auth_OpenID_DiffieHellman {
         return $this->public;
     }
 
+    /**
+     * Generate the arguments for an OpenID Diffie-Hellman association
+     * request
+     */
+    function getAssocArgs()
+    {
+        $cpub = $this->lib->longToBase64($this->getPublicKey());
+        $args = array(
+                      'openid.dh_consumer_public' => $cpub,
+                      'openid.session_type' => 'DH-SHA1'
+                      );
+
+        if ($this->lib->cmp($this->mod, Auth_OpenID_getDefaultMod()) ||
+            $this->lib->cmp($this->gen, Auth_OpenID_getDefaultGen())) {
+            $args['openid.dh_modulus'] = $this->lib->longToBase64($this->mod);
+            $args['openid.dh_gen'] = $this->lib->longToBase64($this->gen);
+        }
+
+        return $args;
+    }
+
     function usingDefaultValues()
     {
         return ($this->mod == Auth_OpenID_getDefaultMod() &&
@@ -109,5 +131,3 @@ class Auth_OpenID_DiffieHellman {
         return $xsecret;
     }
 }
-
-?>

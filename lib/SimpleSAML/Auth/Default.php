@@ -19,34 +19,39 @@ class SimpleSAML_Auth_Default {
 	 * This function never returns.
 	 *
 	 * @param string $authId  The identifier of the authentication source.
-	 * @param string|array $return  The URL or function we should direct the user to after authentication.
+	 * @param string $returnURL  The URL we should direct the user to after authentication.
 	 * @param string|NULL $errorURL  The URL we should direct the user to after failed authentication.
 	 *                               Can be NULL, in which case a standard error page will be shown.
-	 * @param array $params  Extra information about the login. Different authentication requestors may
-	 *                       provide different information. Optional, will default to an empty array.
+	 * @param array $hints  Extra information about the login. Different authentication requestors may
+	 *                      provide different information. Optional, will default to an empty array.
 	 */
-	public static function initLogin($authId, $return, $errorURL = NULL, array $params = array()) {
+	public static function initLogin($authId, $returnURL, $errorURL = NULL, $hints = array()) {
 		assert('is_string($authId)');
-		assert('is_string($return) || is_array($return)');
+		assert('is_string($returnURL)');
 		assert('is_string($errorURL) || is_null($errorURL)');
+		assert('is_array($hints)');
 
-		$state = array_merge($params, array(
+		$state = array(
 			'SimpleSAML_Auth_Default.id' => $authId,
-			'SimpleSAML_Auth_Default.Return' => $return,
+			'SimpleSAML_Auth_Default.ReturnURL' => $returnURL,
 			'SimpleSAML_Auth_Default.ErrorURL' => $errorURL,
 			'LoginCompletedHandler' => array(get_class(), 'loginCompleted'),
+			'LoginFailedHandler' => array(get_class(), 'loginFailed'),
 			'LogoutCallback' => array(get_class(), 'logoutCallback'),
 			'LogoutCallbackState' => array(
 				'SimpleSAML_Auth_Default.logoutSource' => $authId,
-			),
-		));
+				),
+			);
 
-		if (is_string($return)) {
-			$state['SimpleSAML_Auth_Default.ReturnURL'] = $return;
+		if (array_key_exists('SPMetadata', $hints)) {
+			$state['SPMetadata'] = $hints['SPMetadata'];
+		}
+		if (array_key_exists('IdPMetadata', $hints)) {
+			$state['IdPMetadata'] = $hints['IdPMetadata'];
 		}
 
-		if ($errorURL !== NULL) {
-			$state[SimpleSAML_Auth_State::EXCEPTION_HANDLER_URL] = $errorURL;
+		if (array_key_exists(SimpleSAML_Auth_State::RESTART, $hints)) {
+			$state[SimpleSAML_Auth_State::RESTART] = $hints[SimpleSAML_Auth_State::RESTART];
 		}
 
 		$as = SimpleSAML_Auth_Source::getById($authId);
@@ -54,14 +59,7 @@ class SimpleSAML_Auth_Default {
 			throw new Exception('Invalid authentication source: ' . $authId);
 		}
 
-		try {
-			$as->authenticate($state);
-		} catch (SimpleSAML_Error_Exception $e) {
-			SimpleSAML_Auth_State::throwException($state, $e);
-		} catch (Exception $e) {
-			$e = new SimpleSAML_Error_UnserializableException($e);
-			SimpleSAML_Auth_State::throwException($state, $e);
-		}
+		$as->authenticate($state);
 		self::loginCompleted($state);
 	}
 
@@ -73,12 +71,12 @@ class SimpleSAML_Auth_Default {
 	 */
 	public static function loginCompleted($state) {
 		assert('is_array($state)');
-		assert('array_key_exists("SimpleSAML_Auth_Default.Return", $state)');
+		assert('array_key_exists("SimpleSAML_Auth_Default.ReturnURL", $state)');
 		assert('array_key_exists("SimpleSAML_Auth_Default.id", $state)');
 		assert('array_key_exists("Attributes", $state)');
 		assert('!array_key_exists("LogoutState", $state) || is_array($state["LogoutState"])');
 
-		$return = $state['SimpleSAML_Auth_Default.Return'];
+		$returnURL = $state['SimpleSAML_Auth_Default.ReturnURL'];
 
 		/* Save session state. */
 		$session = SimpleSAML_Session::getInstance();
@@ -92,19 +90,36 @@ class SimpleSAML_Auth_Default {
 			$session->setLogoutState($state['LogoutState']);
 		}
 
-		if (array_key_exists('IdP', $state)) {
-			$session->setIdP($state['IdP']);
-		} else {
-			$session->setIdP(NULL);
+		/* Redirect... */
+		SimpleSAML_Utilities::redirect($returnURL);
+	}
+
+
+	/**
+	 * Called when a login operation fails.
+	 *
+	 * @param array $state  The state array.
+	 * @param string $statusCode  A status code, in the form of an URI, which indicates why the login failed.
+	 * @param string $statusMessage  A text which describes why the login failed.
+	 */
+	public static function loginFailed($state, $statusCode, $statusMessage) {
+		assert('is_array($state)');
+		assert('array_key_exists("SimpleSAML_Auth_Default.ErrorURL", $state)');
+		assert('is_string($statusCode)');
+		assert('is_string($statusMessage)');
+
+		$url = $state['SimpleSAML_Auth_Default.ErrorURL'];
+		if ($url === NULL) {
+			/* We don't have an error handler. Show an error page. */
+			SimpleSAML_Utilities::fatalError($session->getTrackID(), 'RESPONSESTATUSNOSUCCESS',
+				new Exception('StatusCode = \'' . $statusCode . '\'; StatusMessage = \'' .
+					$statusMessage . '\';'));
 		}
 
-		if (is_string($return)) {
-			/* Redirect... */
-			SimpleSAML_Utilities::redirect($return);
-		} else {
-			call_user_func($return, $state);
-			assert('FALSE');
-		}
+		$info = array('StatusCode' => $statusCode, 'StatusMessage' => $statusMessage);
+
+		/* Redirect... */
+		SimpleSAML_Utilities::redirect($url, $info);
 	}
 
 
@@ -112,11 +127,11 @@ class SimpleSAML_Auth_Default {
 	 * Start logout.
 	 *
 	 * This function starts a logout operation from the current authentication source. This function
-	 * will return if the logout operation does not require a redirect.
+	 * never returns.
 	 *
 	 * @param string $returnURL  The URL we should redirect the user to after logging out.
 	 */
-	public static function initLogoutReturn($returnURL) {
+	public static function initLogout($returnURL) {
 		assert('is_string($returnURL)');
 
 		$session = SimpleSAML_Session::getInstance();
@@ -135,24 +150,7 @@ class SimpleSAML_Auth_Default {
 		}
 
 		$as->logout($state);
-	}
-
-
-	/**
-	 * Start logout.
-	 *
-	 * This function starts a logout operation from the current authentication source. This function
-	 * never returns.
-	 *
-	 * @param string $returnURL  The URL we should redirect the user to after logging out.
-	 */
-	public static function initLogout($returnURL) {
-		assert('is_string($returnURL)');
-
-		self::initLogoutReturn($returnURL);
-
-		/* Redirect... */
-		SimpleSAML_Utilities::redirect($returnURL);
+		self::logoutCompleted($state);
 	}
 
 
@@ -196,44 +194,6 @@ class SimpleSAML_Auth_Default {
 		}
 
 		$session->doLogout();
-	}
-
-
-	/**
-	 * Handle a unsoliced login operations.
-	 *
-	 * This function creates a session from the received information. It
-	 * will then redirect to the given URL.
-	 *
-	 * This is used to handle IdP initiated SSO.
-	 *
-	 * @param string $authId  The id of the authentication source that received the request.
-	 * @param array $state  A state array.
-	 * @param string $redirectTo  The URL we should redirect the user to after
-	 *                            updating the session.
-	 */
-	public static function handleUnsolicedAuth($authId, array $state, $redirectTo) {
-		assert('is_string($authId)');
-		assert('is_string($redirectTo)');
-
-		$session = SimpleSAML_Session::getInstance();
-		$session->doLogin($authId);
-
-		if (array_key_exists('Attributes', $state)) {
-			$session->setAttributes($state['Attributes']);
-		} else {
-			$session->setAttributes(array());
-		}
-
-		if(array_key_exists('Expires', $state)) {
-			$session->setSessionDuration($state['Expires'] - time());
-		}
-
-		if (array_key_exists('LogoutState', $state)) {
-			$session->setLogoutState($state['LogoutState']);
-		}
-
-		SimpleSAML_Utilities::redirect($redirectTo);
 	}
 
 }

@@ -19,7 +19,6 @@
 
 
 $this->data['header'] = $this->t('{preprodwarning:warning:warning_header}');
-$this->data['autofocus'] = 'yesbutton';
 
 $this->includeAtTemplateBase('includes/header.php');
 

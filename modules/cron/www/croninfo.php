@@ -11,7 +11,11 @@ require_once('_include.php');
 $config = SimpleSAML_Configuration::getInstance();
 $session = SimpleSAML_Session::getInstance();
 
-SimpleSAML_Utilities::requireAdmin();
+if (!isset($session) || !$session->isValid('login-admin') ) {
+	SimpleSAML_Utilities::redirect('/' . $config->getBaseURL() . 'auth/login-admin.php',
+		array('RelayState' => SimpleSAML_Utilities::selfURL())
+	);
+}
 
 $cronconfig = SimpleSAML_Configuration::getConfig('module_cron.php');
 
@@ -28,15 +32,15 @@ $def = array(
 $urls = array();
 foreach ($tags AS $tag) {
 	$urls[] = array(
-		'href' => SimpleSAML_Module::getModuleURL('cron/cron.php', array('key' => $key, 'tag' => $tag)),
-		'tag' => $tag,
+		'href' => SimpleSAML_Module::getModuleURL('cron/cron.php?key=' . $key . '&amp;tag=' . $tag),
+		'title' => 'Run cron [' . $tag . ']',
 		'int' => (array_key_exists($tag, $def) ? $def[$tag] : $def['default']),
 	);
 }
 
 
 
-$t = new SimpleSAML_XHTML_Template($config, 'cron:croninfo-tpl.php', 'cron:cron');
+$t = new SimpleSAML_XHTML_Template($config, 'cron:croninfo-tpl.php');
 $t->data['urls'] = $urls;
 $t->show();
 

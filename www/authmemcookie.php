@@ -18,7 +18,7 @@ try {
 	$session = SimpleSAML_Session::getInstance();
 
 	/* Check if this module is enabled. */
-	if(!$globalConfig->getBoolean('enable.authmemcookie', FALSE)) {
+	if(!$globalConfig->getValue('enable.authmemcookie', FALSE)) {
 		SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOACCESS');
 	}
 
@@ -28,12 +28,6 @@ try {
 	/* Check if the user is authorized. We attempt to authenticate the user if not. */
 	$loginMethod = $amc->getLoginMethod();
 	switch($loginMethod) {
-	case 'authsource':
-		/* The default now. */
-		$sourceId = $amc->getAuthSource();
-		$s = new SimpleSAML_Auth_Simple($sourceId);
-		$s->requireAuth();
-		break;
 	case 'saml2':
 		if (!$session->isValid('saml2') ) {
 			SimpleSAML_Utilities::redirect(
@@ -109,8 +103,7 @@ try {
 
 
 	$memcache = $amc->getMemcache();
-	$expirationTime = $session->remainingTime();
-	$memcache->set($sessionID, $data, 0, $expirationTime);
+	$memcache->set($sessionID, $data);
 
 	/* Register logout handler. */
 	$session->registerLogoutHandler('SimpleSAML_AuthMemCookie', 'logoutHandler');
@@ -120,3 +113,5 @@ try {
 } catch(Exception $e) {
 	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'CONFIG', $e);
 }
+
+?>

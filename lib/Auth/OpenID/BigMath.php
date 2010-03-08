@@ -11,8 +11,8 @@
  * @access private
  * @package OpenID
  * @author JanRain, Inc. <openid@janrain.com>
- * @copyright 2005-2008 Janrain, Inc.
- * @license http://www.apache.org/licenses/LICENSE-2.0 Apache
+ * @copyright 2005 Janrain, Inc.
+ * @license http://www.gnu.org/copyleft/lesser.html LGPL
  */
 
 /**
@@ -427,7 +427,7 @@ function &Auth_OpenID_getMathLib()
         return $lib;
     }
 
-    if (Auth_OpenID_noMathSupport()) {
+    if (defined('Auth_OpenID_NO_MATH_SUPPORT')) {
         $null = null;
         return $null;
     }
@@ -443,10 +443,8 @@ function &Auth_OpenID_getMathLib()
         }
         $triedstr = implode(", ", $tried);
 
-        Auth_OpenID_setNoMathSupport();
-
-        $result = null;
-        return $result;
+        define('Auth_OpenID_NO_MATH_SUPPORT', true);
+        return null;
     }
 
     // Instantiate a new wrapper
@@ -454,18 +452,6 @@ function &Auth_OpenID_getMathLib()
     $lib = new $class();
 
     return $lib;
-}
-
-function Auth_OpenID_setNoMathSupport()
-{
-    if (!defined('Auth_OpenID_NO_MATH_SUPPORT')) {
-        define('Auth_OpenID_NO_MATH_SUPPORT', true);
-    }
-}
-
-function Auth_OpenID_noMathSupport()
-{
-    return defined('Auth_OpenID_NO_MATH_SUPPORT');
 }
 
 ?>

@@ -8,12 +8,16 @@ $metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
 $session = SimpleSAML_Session::getInstance();
 
 
-if (!$config->getBoolean('enable.shib13-sp', false))
+if (!$config->getValue('enable.shib13-sp', false))
 	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOACCESS');
 
 /* Check if valid local session exists.. */
-if ($config->getBoolean('admin.protectmetadata', false)) {
-	SimpleSAML_Utilities::requireAdmin();
+if ($config->getValue('admin.protectmetadata', false)) {
+	if (!isset($session) || !$session->isValid('login-admin') ) {
+		SimpleSAML_Utilities::redirect('/' . $config->getBaseURL() . 'auth/login-admin.php',
+			array('RelayState' => SimpleSAML_Utilities::selfURL())
+		);
+	}
 }
 
 
@@ -24,8 +28,6 @@ try {
 	
 
 	$metaArray = array(
-		'metadata-set' => 'shib13-sp-remote',
-		'entityid' => $spentityid,
 		'AssertionConsumerService' => $metadata->getGenerated('AssertionConsumerService', 'shib13-sp-hosted'),
 	);
 
@@ -39,47 +41,27 @@ try {
 	} else {
 		$metaArray['NameIDFormat'] = 'urn:mace:shibboleth:1.0:nameIdentifier';
 	}
-
-	if (!empty($spmeta['OrganizationName'])) {
-		$metaArray['OrganizationName'] = $spmeta['OrganizationName'];
-
-		if (!empty($spmeta['OrganizationDisplayName'])) {
-			$metaArray['OrganizationDisplayName'] = $spmeta['OrganizationDisplayName'];
-		} else {
-			$metaArray['OrganizationDisplayName'] = $spmeta['OrganizationName'];
-		}
-
-		if (empty($spmeta['OrganizationURL'])) {
-			throw new SimpleSAML_Error_Exception('If OrganizationName is set, OrganizationURL must also be set.');
-		}
-		$metaArray['OrganizationURL'] = $spmeta['OrganizationURL'];
-	}
-
-	if (array_key_exists('attributes', $spmeta)) {
-		$metaArray['attributes'] = $spmeta['attributes'];
-	}
-	if (array_key_exists('attributes.NameFormat', $spmeta)) {
-		$metaArray['attributes.NameFormat'] = $spmeta['attributes.NameFormat'];
-	}
 	if (array_key_exists('name', $spmeta)) {
 		$metaArray['name'] = $spmeta['name'];
 	}
 	if (array_key_exists('description', $spmeta)) {
 		$metaArray['description'] = $spmeta['description'];
 	}
+	if (array_key_exists('url', $spmeta)) {
+		$metaArray['url'] = $spmeta['url'];
+	}
 
 
-	$metaflat = '$metadata[' . var_export($spentityid, TRUE) . '] = ' . var_export($metaArray, TRUE) . ';';
+	$metaflat = var_export($spentityid, TRUE) . ' => ' . var_export($metaArray, TRUE) . ',';
 
 	if (array_key_exists('certificate', $spmeta)) {
 		$metaArray['certificate'] = $spmeta['certificate'];
 	}
 	$metaBuilder = new SimpleSAML_Metadata_SAMLBuilder($spentityid);
 	$metaBuilder->addMetadataSP11($metaArray);
-	$metaBuilder->addOrganizationInfo($metaArray);
 	$metaBuilder->addContact('technical', array(
-		'emailAddress' => $config->getString('technicalcontact_email', NULL),
-		'name' => $config->getString('technicalcontact_name', NULL),
+		'emailAddress' => $config->getValue('technicalcontact_email'),
+		'name' => $config->getValue('technicalcontact_name'),
 		));
 	$metaxml = $metaBuilder->getEntityDescriptorText();
 
@@ -87,12 +69,27 @@ try {
 	$metaxml = SimpleSAML_Metadata_Signer::sign($metaxml, $spmeta, 'Shib 1.3 SP');
 
 	if (array_key_exists('output', $_GET) && $_GET['output'] == 'xhtml') {
+		$defaultidp = $config->getValue('default-shib13-idp');
+		
 		$t = new SimpleSAML_XHTML_Template($config, 'metadata.php', 'admin');
+		
+	
 		$t->data['header'] = 'shib13-sp';
 		$t->data['metadata'] = htmlspecialchars($metaxml);
 		$t->data['metadataflat'] = htmlspecialchars($metaflat);
 		$t->data['metaurl'] = SimpleSAML_Utilities::addURLparameter(SimpleSAML_Utilities::selfURLNoQuery(), array('output' => 'xml'));
-		$t->data['techemail'] = $config->getString('technicalcontact_email', 'na');
+		
+		/*
+		if (array_key_exists($defaultidp, $send_metadata_to_idp)) {
+			$et->data['sendmetadatato'] = $send_metadata_to_idp[$defaultidp]['address'];
+			$et->data['federationname'] = $send_metadata_to_idp[$defaultidp]['name'];
+		}
+		*/
+	
+		$t->data['techemail'] = $config->getValue('technicalcontact_email', 'na');
+		$t->data['version'] = $config->getValue('version', 'na');
+		$t->data['defaultidp'] = $defaultidp;
+		
 		$t->show();
 		
 	} else {	

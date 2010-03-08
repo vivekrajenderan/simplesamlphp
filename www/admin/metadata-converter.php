@@ -44,8 +44,8 @@ try {
 				 */
 				unset($entityMetadata['entityDescriptor']);
 
-				$text .= '$metadata[' . var_export($entityId, TRUE) . '] = ' .
-					var_export($entityMetadata, TRUE) . ";\n";
+				$text .= var_export($entityId, TRUE) . ' => ' .
+					var_export($entityMetadata, TRUE) . ",\n";
 			}
 
 			$entities = $text;

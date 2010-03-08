@@ -3,7 +3,7 @@
 /* Remove magic quotes. */
 if(get_magic_quotes_gpc()) {
 	foreach(array('_GET', '_POST', '_COOKIE', '_REQUEST') as $a) {
-		if (isset($$a) && is_array($$a)) {
+		if (is_array($$a)) {
 			foreach($$a as &$v) {
 				/* We don't use array-parameters anywhere.
 				 * Ignore any that may appear.
@@ -22,44 +22,15 @@ if(get_magic_quotes_gpc()) {
 /* Initialize the autoloader. */
 require_once(dirname(dirname(__FILE__)) . '/lib/_autoload.php');
 
-/* Enable assertion handler for all pages. */
-SimpleSAML_Error_Assertion::installHandler();
+$path_extra = dirname(dirname(__FILE__)) . '/lib';
 
-/* Show error page on unhandled exceptions. */
-function SimpleSAML_exception_handler(Exception $exception) {
 
-	if ($exception instanceof SimpleSAML_Error_Error) {
-		$exception->show();
-	} else {
-		$e = new SimpleSAML_Error_Error('UNHANDLEDEXCEPTION', $exception);
-		$e->show();
-	}
-}
-set_exception_handler('SimpleSAML_exception_handler');
+/** + start modify include path + */
+$path = ini_get('include_path');
+$path = $path_extra . PATH_SEPARATOR . $path;
+ini_set('include_path', $path);
+/** + end modify include path + */
 
-/* Log full backtrace on errors and warnings. */
-function SimpleSAML_error_handler($errno, $errstr, $errfile = NULL, $errline = 0, $errcontext = NULL) {
-
-	if ($errno & SimpleSAML_Utilities::$logMask) {
-		/* Masked error. */
-		return FALSE;
-	}
-
-	static $limit = 5;
-	$limit -= 1;
-	if ($limit < 0) {
-		/* We have reached the limit in the number of backtraces we will log. */
-		return FALSE;
-	}
-
-	/* Show an error with a full backtrace. */
-	$e = new SimpleSAML_Error_Exception('Error ' . $errno . ' - ' . $errstr);
-	$e->logError();
-
-	/* Resume normal error processing. */
-	return FALSE;
-}
-set_error_handler('SimpleSAML_error_handler');
 
 /**
  * Class which should print a warning every time a reference to $SIMPLESAML_INCPREFIX is made.
@@ -91,7 +62,8 @@ if (!file_exists($configdir . '/config.php')) {
 	exit(1);
 }
 
-/* Set the timezone. */
-SimpleSAML_Utilities::initTimezone();
+SimpleSAML_Configuration::setConfigDir($configdir);
+
+
 
 ?>

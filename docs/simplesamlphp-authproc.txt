@@ -9,9 +9,6 @@ Authentication Processing Filters in SimpleSAMLphp
 
   * Version: `$Id$`
 
-<!-- {{TOC}} -->
-
-
 In SimpleSAMLphp, there is an API where you can *do stuff* at the IdP after authentication is complete, and just before you are sent back to the SP. The same API is available on the SP, after you have received a successfull Authentication Response from the IdP and before you are sent back to the SP application.
 
 Authentication processing filters postprocesses authentication information received from authentication sources. It is possible to use this for additional authentication checks, requesting the users consent before delivering attributes to the user, modifying the users attributes, and other things which should be performed before returning the user to the service provider he came from.
@@ -38,7 +35,7 @@ How to configure Auth Proc Filters
 *Auth Proc Filters* can be set globally, or to be specific for only one SP or one IdP. That means there is three locations where you can configure *Auth Proc Filters*:
 
   * Globally in `config.php`
-  * On the SP: Specific for only the SP in `authsources.php`
+  * On the SP: Specific for only one hosted SP in `saml20-sp-hosted` or `shib13-sp-hosted`
   * On the SP: Specific for only one remote IdP in `saml20-idp-remote` or `shib13-idp-remote`
   * On the IdP: Specific for only one hosted IdP in `saml20-idp-hosted` or `shib13-idp-hosted`
   * On the IdP: Specific for only one remote SP in `saml20-sp-remote` or `shib13-sp-remote`
@@ -305,39 +302,6 @@ In example that could mean:
 	sha1( 'uidhashbaseq8d76f8ds75f68d7s24:https://idp.example.org
 		23:https://sp.example.org19:andreas@uninett.noq8d76f8ds75f68d7s' )
 
-
-#### Internet2 compatible `eduPersontargetedID` ####
-
-Internet2 uses an `<AttributeValue>` element with a `<NameID>` element to represent the `edupersonTargetedID`:
-
-    <saml2:AttributeValue>
-        <saml2:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:persistent"
-           NameQualifier="https://idp.example.org/shibboleth"
-           SPNameQualifier="https://sp.example.org/shibboleth"
-           >1234567890</saml2:NameID>
-    </saml2:AttributeValue>
-
-This format is documented in the [MACE-Dir SAML Attribute Profiles](http://middleware.internet2.edu/dir/docs/internet2-mace-dir-saml-attributes-200604.pdf) document.
-
-To make simpleSAMLphp generate this kind of `eduPersonTargetedID`, you need to set the `nameId`-option to TRUE.
-You also need to change the encoding of the `eduPersonTargetedID` attribute to `raw`.
-
-Example:
-
-    $metadata['__DYNAMIC:1__'] = array(
-        'host' => '__DEFAULT__',
-        'auth' => 'example-static',
-
-        'authproc' => array(
-            60 => array(
-                'class' => 'core:TargetedID',
-                'nameId' => TRUE,
-            ),
-        ),
-        'attributeencodings' => array(
-            'eduPersonTargetedID' => 'raw',
-        ),
-    );
 
 
 ### Adding a group attribute (`core:GenerateGroups`)

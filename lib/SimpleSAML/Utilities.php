@@ -9,40 +9,13 @@
  */
 class SimpleSAML_Utilities {
 
-	/**
-	 * List of log levels.
-	 *
-	 * This list is used to restore the log levels after some log levels are disabled.
-	 *
-	 * @var array
-	 */
-	private static $logLevelStack = array();
-
-
-	/**
-	 * The current mask of disabled log levels.
-	 *
-	 * Note: This mask is not directly related to the PHP error reporting level.
-	 *
-	 * @var int
-	 */
-	public static $logMask = 0;
-
 
 	/**
 	 * Will return sp.example.org
 	 */
 	public static function getSelfHost() {
 	
-		if (array_key_exists('HTTP_HOST', $_SERVER)) {
-			$currenthost = $_SERVER['HTTP_HOST'];
-		} elseif (array_key_exists('SERVER_NAME', $_SERVER)) {
-			$currenthost = $_SERVER['SERVER_NAME'];
-		} else {
-			/* Almost certainly not what you want, but ... */
-			$currenthost = 'localhost';
-		}
-
+		$currenthost = $_SERVER['HTTP_HOST'];
 		if(strstr($currenthost, ":")) {
 				$currenthostdecomposed = explode(":", $currenthost);
 				$currenthost = $currenthostdecomposed[0];
@@ -159,38 +132,10 @@ class SimpleSAML_Utilities {
 	public static function getRequestURI() {
 		
 		$requesturi = $_SERVER['REQUEST_URI'];
-
-		if ($requesturi[0] !== '/') {
-			/* We probably have an url on the form: http://server/. */
-			if (preg_match('#^https?://[^/]*(/.*)#i', $requesturi, $matches)) {
-				$requesturi = $matches[1];
-			}
+		if (preg_match('|^/.*?(/.*)$|', $_SERVER['REQUEST_URI'], $matches)) {
+		#$requesturi = $matches[1];
 		}
-
 		return $requesturi;
-	}
-
-
-	/**
-	 * Retrieve the absolute base URL for the simpleSAMLphp installation.
-	 *
-	 * This function will return the absolute base URL for the simpleSAMLphp
-	 * installation. For example: https://idp.example.org/simplesaml/
-	 *
-	 * The URL will always end with a '/'.
-	 *
-	 * @return string  The absolute base URL for the simpleSAMLphp installation.
-	 */
-	public static function getBaseURL() {
-
-		$globalConfig = SimpleSAML_Configuration::getInstance();
-		$ret = SimpleSAML_Utilities::selfURLhost() . '/' . $globalConfig->getBaseURL();
-		if (substr($ret, -1) !== '/') {
-			throw new SimpleSAML_Error_Exception('Invalid value of \'baseurl\' in ' .
-				'config.php. It must end with a \'/\'.');
-		}
-
-		return $ret;
 	}
 
 
@@ -234,7 +179,7 @@ class SimpleSAML_Utilities {
 		}
 
 		$query = array_merge($oldQuery, $parameter);
-		$url .= http_build_query($query, '', '&');
+		$url .= http_build_query($query);
 
 		return $url;
 	}
@@ -380,33 +325,24 @@ class SimpleSAML_Utilities {
 
 
 	/**
-	 * Format a backtrace from an exception.
+	 * This function dumps a backtrace to the error log.
 	 *
-	 * This function formats a backtrace from an exception in a simple format
-	 * which doesn't include the variables passed to functions.
-	 *
-	 * The bactrace has the following format:
-	 *  0: <filename>:<line> (<current function>)
-	 *  1: <filename>:<line> (<previous fucntion>)
+	 * The log is in the following form:
+	 *  BT: (0) <filename>:<line> (<current function>)
+	 *  BT: (1) <filename>:<line> (<previous fucntion>)
 	 *  ...
-	 *  N: <filename>:<line> (N/A)
+	 *  BT: (N) <filename>:<line> (N/A)
 	 *
-	 * @param Exception $e  The exception we should format the backtrace for.
-	 * @param int $startDepth  The first frame we should include in the backtrace.
-	 * @return string  The formatted backtrace.
+	 * The log starts at the function which calls logBacktrace().
 	 */
-	public static function formatBacktrace(Exception $e, $startDepth = 0) {
-		assert('$e instanceof Exception');
-		assert('is_int($startDepth)');
+	public static function logBacktrace() {
 
-		$trace = '';
+		$e = new Exception();
 
-		$bt = self::buildBacktrace($e, $startDepth);
+		$bt = self::buildBackTrace($e, 1);
 		foreach($bt as $depth => $t) {
-			$trace .= $depth . ': ' . $t . "\n";
+			error_log('BT: (' . $depth . ') ' . $t);
 		}
-
-		return $trace;
 	}
 
 
@@ -472,7 +408,7 @@ class SimpleSAML_Utilities {
 		assert('is_null($timestamp) || is_int($timestamp)');
 
 		/* Parse the duration. We use a very strict pattern. */
-		$durationRegEx = '#^(-?)P(?:(?:(?:(\\d+)Y)?(?:(\\d+)M)?(?:(\\d+)D)?(?:T(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?)?)|(?:(\\d+)W))$#D';
+		$durationRegEx = '#^(-?)P(?:(?:(?:(\\d+)Y)?(?:(\\d+)M)?(?:(\\d+)D)?(?:T(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?)?)|(?:(\\d+)W))$#';
 		if (!preg_match($durationRegEx, $duration, $matches)) {
 			throw new Exception('Invalid ISO 8601 duration: ' . $duration);
 		}
@@ -570,7 +506,7 @@ class SimpleSAML_Utilities {
 
 		// Get the exception message if there is any exception provided.
 		$emsg   = (empty($e) ? 'No exception available' : $e->getMessage());
-		$etrace = (empty($e) ? 'No exception available' : self::formatBacktrace($e));
+		$etrace = (empty($e) ? 'No exception available' : $e->getTraceAsString()); 
 
 		if(!empty($errorcode) && count($parameters) > 0) {
 			$reptext = array();
@@ -587,13 +523,6 @@ class SimpleSAML_Utilities {
 
 		// Log a error message
 		SimpleSAML_Logger::error($_SERVER['PHP_SELF'].' - UserError: ErrCode:' . $error . ': ' . urlencode($emsg) );
-		if (!empty($e)) {
-			SimpleSAML_Logger::error('Exception: ' . get_class($e));
-			SimpleSAML_Logger::error('Backtrace:');
-			foreach (explode("\n", $etrace) as $line) {
-				SimpleSAML_Logger::error($line);
-			}
-		}
 		
 		$languagefile = null;
 		if (isset($errorcode)) $languagefile = 'errors';
@@ -605,10 +534,10 @@ class SimpleSAML_Utilities {
 		$t->data['errorcode'] = $errorcode;
 		$t->data['parameters'] = $parameters;
 
-		$t->data['showerrors'] = $config->getBoolean('showerrors', true);
+		$t->data['showerrors'] = $config->getValue('showerrors', true);
 
 		/* Check if there is a valid technical contact email address. */
-		if($config->getString('technicalcontact_email', 'na@example.org') !== 'na@example.org') {
+		if($config->getValue('technicalcontact_email', 'na@example.org') !== 'na@example.org') {
 			/* Enable error reporting. */
 			$baseurl = SimpleSAML_Utilities::selfURLhost() . '/' . $config->getBaseURL();
 			$t->data['errorreportaddress'] = $baseurl . 'errorreport.php';
@@ -632,7 +561,7 @@ class SimpleSAML_Utilities {
 		
 		$t->data['trackid'] = $trackid;
 		
-		$t->data['version'] = $config->getVersion();
+		$t->data['version'] = $config->getValue('version', 'na');
 		$t->data['url'] = self::selfURLNoQuery();
 		
 		$t->show();
@@ -645,7 +574,7 @@ class SimpleSAML_Utilities {
 	 */
 	static function ipCIDRcheck($cidr, $ip = null) {
 		if ($ip == null) $ip = $_SERVER['REMOTE_ADDR'];
-		list ($net, $mask) = explode('/', $cidr);
+		list ($net, $mask) = split ("/", $cidr);
 		
 		$ip_net = ip2long ($net);
 		$ip_mask = ~((1 << (32 - $mask)) - 1);
@@ -716,11 +645,6 @@ class SimpleSAML_Utilities {
 			/* Encode the parameter. */
 			if($value === NULL) {
 				$param = urlencode($name);
-			} elseif (is_array($value)) {
-				$param = "";
-				foreach ($value as $val) {
-					$param .= urlencode($name) . "[]=" . urlencode($val) . '&';				
-				}
 			} else {
 				$param = urlencode($name) . '=' .
 					urlencode($value);
@@ -823,15 +747,11 @@ class SimpleSAML_Utilities {
 	 * @param $nsURI The namespaceURI the element should have.
 	 * @return TRUE if both namespace and localname matches, FALSE otherwise.
 	 */
-	public static function isDOMElementOfType(DOMNode $element, $name, $nsURI) {
+	public static function isDOMElementOfType($element, $name, $nsURI) {
+		assert('$element instanceof DOMElement');
 		assert('is_string($name)');
 		assert('is_string($nsURI)');
 		assert('strlen($nsURI) > 0');
-
-		if (!($element instanceof DOMElement)) {
-			/* Most likely a comment-node. */
-			return FALSE;
-		}
 
 		/* Check if the namespace is a shortcut, and expand it if it is. */
 		if($nsURI[0] == '@') {
@@ -876,15 +796,14 @@ class SimpleSAML_Utilities {
 	 *
 	 * This function accepts the same shortcuts for namespaces as the isDOMElementOfType function.
 	 *
-	 * @param DOMElement $element  The element we should look in.
-	 * @param string $localName  The name the element should have.
-	 * @param string $namespaceURI  The namespace the element should have.
-	 * @return array  Array with the matching elements in the order they are found. An empty array is
+	 * @param $element The element we should look in.
+	 * @param $localName The name the element should have.
+	 * @param $namespaceURI The namespace the element should have.
+	 * @return Array with the matching elements in the order they are found. An empty array is
 	 *         returned if no elements match.
 	 */
-	public static function getDOMChildren(DOMElement $element, $localName, $namespaceURI) {
-		assert('is_string($localName)');
-		assert('is_string($namespaceURI)');
+	public static function getDOMChildren($element, $localName, $namespaceURI) {
+		assert('$element instanceof DOMElement');
 
 		$ret = array();
 
@@ -1064,13 +983,18 @@ class SimpleSAML_Utilities {
 			throw new Exception('XML contained a doctype declaration.');
 		}
 
-		$enabled = SimpleSAML_Configuration::getInstance()->getBoolean('debug.validatexml', NULL);
+		$enabled = SimpleSAML_Configuration::getInstance()->getValue('debug.validatexml', NULL);
 		if($enabled === NULL) {
 			/* Fall back to old configuration option. */
-			$enabled = SimpleSAML_Configuration::getInstance()->getBoolean('debug.validatesamlmessages', NULL);
+			$enabled = SimpleSAML_Configuration::getInstance()->getValue('debug.validatesamlmessages', NULL);
 			if($enabled === NULL) {
 				/* Fall back to even older configuration option. */
-				$enabled = SimpleSAML_Configuration::getInstance()->getBoolean('debug.validatesaml2messages', FALSE);
+				$enabled = SimpleSAML_Configuration::getInstance()->getValue('debug.validatesaml2messages', FALSE);
+				if(!is_bool($enabled)) {
+					throw new Exception('Expected "debug.validatesaml2messages" to be set to a boolean value.');
+				}
+			} elseif(!is_bool($enabled)) {
+				throw new Exception('Expected "debug.validatexml" to be set to a boolean value.');
 			}
 		}
 
@@ -1181,11 +1105,7 @@ class SimpleSAML_Utilities {
 		assert('is_int($length)');
 
 		if($fp === NULL) {
-			if (file_exists('/dev/urandom')) {
-				$fp = fopen('/dev/urandom', 'rb');
-			} else {
-				$fp = FALSE;
-			}
+			$fp = @fopen('/dev/urandom', 'rb');
 		}
 
 		if($fp !== FALSE) {
@@ -1372,8 +1292,8 @@ class SimpleSAML_Utilities {
 		assert('is_string($query_string)');
 
 		$res = array();
-		foreach(explode('&', $query_string) as $param) {
-			$param = explode('=', $param);
+		foreach(split('&', $query_string) as $param) {
+			$param = split('=', $param);
 			$name = urldecode($param[0]);
 			if(count($param) === 1) {
 				$value = '';
@@ -1514,9 +1434,7 @@ class SimpleSAML_Utilities {
 
 		if (array_key_exists($prefix . 'certData', $metadata)) {
 			/* Full certificate data available from metadata. */
-			$certData = $metadata[$prefix . 'certData'];
-			$certData = str_replace(array("\r", "\n", "\t", ' '), '', $certData);
-			$ret['certData'] = $certData;
+			$ret['certData'] = $metadata[$prefix . 'certData'];
 
 			/* Recreate PEM-encoded certificate. */
 			$ret['PEM'] = "-----BEGIN CERTIFICATE-----\n" .
@@ -1526,7 +1444,7 @@ class SimpleSAML_Utilities {
 		} elseif (array_key_exists($prefix . 'certificate', $metadata)) {
 			/* Reference to certificate file. */
 			$config = SimpleSAML_Configuration::getInstance();
-			$file = $config->getPathValue('certdir', 'cert/') . $metadata[$prefix . 'certificate'];
+			$file = $config->getPathValue('certdir') . $metadata[$prefix . 'certificate'];
 			$data = @file_get_contents($file);
 			if ($data === FALSE) {
 				throw new Exception('Unable to load certificate/public key from file "' . $file . '"');
@@ -1613,7 +1531,7 @@ class SimpleSAML_Utilities {
 		}
 
 		$config = SimpleSAML_Configuration::getInstance();
-		$file = $config->getPathValue('certdir', 'cert/') . $metadata[$prefix . 'privatekey'];
+		$file = $config->getPathValue('certdir') . $metadata[$prefix . 'privatekey'];
 		$data = @file_get_contents($file);
 		if ($data === FALSE) {
 			throw new Exception('Unable to load private key from file "' . $file . '"');
@@ -1749,489 +1667,6 @@ class SimpleSAML_Utilities {
 		} else {
 			return array($index => $data);
 		}
-	}
-
-
-	/**
-	 * Check whether the current user is a admin user.
-	 *
-	 * @return bool  TRUE if the current user is a admin user, FALSE if not.
-	 */
-	public static function isAdmin() {
-
-		$session = SimpleSAML_Session::getInstance();
-
-		return $session->isValid('admin') || $session->isValid('login-admin');
-	}
-
-
-	/**
-	 * Retrieve a admin login URL.
-	 *
-	 * @param string|NULL $returnTo  The URL the user should arrive on after admin authentication.
-	 * @return string  An URL which can be used for admin authentication.
-	 */
-	public static function getAdminLoginURL($returnTo = NULL) {
-		assert('is_string($returnTo) || is_null($returnTo)');
-
-		if ($returnTo === NULL) {
-			$returnTo = SimpleSAML_Utilities::selfURL();
-		}
-
-		return SimpleSAML_Module::getModuleURL('core/login-admin.php', array('ReturnTo' => $returnTo));
-	}
-
-
-	/**
-	 * Require admin access for current page.
-	 *
-	 * This is a helper-function for limiting a page to admin access. It will redirect
-	 * the user to a login page if the current user doesn't have admin access.
-	 */
-	public static function requireAdmin() {
-
-		if (self::isAdmin()) {
-			return;
-		}
-
-		$returnTo = SimpleSAML_Utilities::selfURL();
-
-		/* Not authenticated as admin user. Start authentication. */
-
-		if (SimpleSAML_Auth_Source::getById('admin') !== NULL) {
-			SimpleSAML_Auth_Default::initLogin('admin', $returnTo);
-		} else {
-			/* For backwards-compatibility. */
-
-			$config = SimpleSAML_Configuration::getInstance();
-			SimpleSAML_Utilities::redirect('/' . $config->getBaseURL() . 'auth/login-admin.php',
-				array('RelayState' => $returnTo)
-						       );
-		}
-	}
-
-
-	/**
-	 * Do a POST redirect to a page.
-	 *
-	 * This function never returns.
-	 *
-	 * @param string $destination  The destination URL.
-	 * @param array $post  An array of name-value pairs which will be posted.
-	 */
-	public static function postRedirect($destination, $post) {
-		assert('is_string($destination)');
-		assert('is_array($post)');
-
-		$config = SimpleSAML_Configuration::getInstance();
-
-		$p = new SimpleSAML_XHTML_Template($config, 'post.php');
-		$p->data['destination'] = $destination;
-		$p->data['post'] = $post;
-		$p->show();
-		exit(0);
-	}
-
-	/**
-	 * Create a link which will POST data.
-	 *
-	 * @param string $destination  The destination URL.
-	 * @param array $post  The name-value pairs which will be posted to the destination.
-	 * @return string  An URL which can be accessed to post the data.
-	 */
-	public static function createPostRedirectLink($destination, $post) {
-		assert('is_string($destination)');
-		assert('is_array($post)');
-
-		$id = SimpleSAML_Utilities::generateID();
-		$postData = array(
-			'post' => $post,
-			'url' => $destination,
-		);
-
-		$session = SimpleSAML_Session::getInstance();
-		$session->setData('core_postdatalink', $id, $postData);
-
-		return SimpleSAML_Module::getModuleURL('core/postredirect.php', array('RedirId' => $id));
-	}
-
-
-	/**
-	 * Validate a certificate against a CA file, by using the builtin
-	 * openssl_x509_checkpurpose function
-	 *
-	 * @param string $certificate  The certificate, in PEM format.
-	 * @param string $caFile  File with trusted certificates, in PEM-format.
-	 * @return boolean|string TRUE on success, or a string with error messages if it failed.
-	 */
-	private static function validateCABuiltIn($certificate, $caFile) {
-		assert('is_string($certificate)');
-		assert('is_string($caFile)');
-
-		/* Clear openssl errors. */
-		while(openssl_error_string() !== FALSE);
-
-		$res = openssl_x509_checkpurpose($certificate, X509_PURPOSE_ANY, array($caFile));
-
-		$errors = '';
-		/* Log errors. */
-		while( ($error = openssl_error_string()) !== FALSE) {
-			$errors .= ' [' . $error . ']';
-		}
-
-		if($res !== TRUE) {
-			return $errors;
-		}
-
-		return TRUE;
-	}
-
-
-	/**
-	 * Validate the certificate used to sign the XML against a CA file, by using the "openssl verify" command.
-	 *
-	 * This function uses the openssl verify command to verify a certificate, to work around limitations
-	 * on the openssl_x509_checkpurpose function. That function will not work on certificates without a purpose
-	 * set.
-	 *
-	 * @param string $certificate  The certificate, in PEM format.
-	 * @param string $caFile  File with trusted certificates, in PEM-format.
-	 * @return boolean|string TRUE on success, a string with error messages on failure.
-	 */
-	private static function validateCAExec($certificate, $caFile) {
-		assert('is_string($certificate)');
-		assert('is_string($caFile)');
-
-		$command = array(
-			'openssl', 'verify',
-			'-CAfile', $caFile,
-			'-purpose', 'any',
-			);
-
-		$cmdline = '';
-		foreach($command as $c) {
-			$cmdline .= escapeshellarg($c) . ' ';
-		}
-
-		$cmdline .= '2>&1';
-		$descSpec = array(
-			0 => array('pipe', 'r'),
-			1 => array('pipe', 'w'),
-			);
-		$process = proc_open($cmdline, $descSpec, $pipes);
-		if (!is_resource($process)) {
-			throw new Exception('Failed to execute verification command: ' . $cmdline);
-		}
-
-		if (fwrite($pipes[0], $certificate) === FALSE) {
-			throw new Exception('Failed to write certificate for verification.');
-		}
-		fclose($pipes[0]);
-
-		$out = '';
-		while (!feof($pipes[1])) {
-			$line = trim(fgets($pipes[1]));
-			if(strlen($line) > 0) {
-				$out .= ' [' . $line . ']';
-			}
-		}
-		fclose($pipes[1]);
-
-		$status = proc_close($process);
-		if ($status !== 0 || $out !== ' [stdin: OK]') {
-			return $out;
-		}
-
-		return TRUE;
-	}
-
-
-	/**
-	 * Validate the certificate used to sign the XML against a CA file.
-	 *
-	 * This function throws an exception if unable to validate against the given CA file.
-	 *
-	 * @param string $certificate  The certificate, in PEM format.
-	 * @param string $caFile  File with trusted certificates, in PEM-format.
-	 */
-	public static function validateCA($certificate, $caFile) {
-		assert('is_string($certificate)');
-		assert('is_string($caFile)');
-
-		if (!file_exists($caFile)) {
-			throw new Exception('Could not load CA file: ' . $caFile);
-		}
-
-		SimpleSAML_Logger::debug('Validating certificate against CA file: ' . var_export($caFile, TRUE));
-
-		$resBuiltin = self::validateCABuiltIn($certificate, $caFile);
-		if ($resBuiltin !== TRUE) {
-			SimpleSAML_Logger::debug('Failed to validate with internal function: ' . var_export($resBuiltin, TRUE));
-
-			$resExternal = self::validateCAExec($certificate, $caFile);
-			if ($resExternal !== TRUE) {
-				SimpleSAML_Logger::debug('Failed to validate with external function: ' . var_export($resExternal, TRUE));
-				throw new Exception('Could not verify certificate against CA file "'
-					. $caFile . '". Internal result:' . $resBuiltin .
-					' External result:' . $resExternal);
-			}
-		}
-
-		SimpleSAML_Logger::debug('Successfully validated certificate.');
-	}
-
-
-	/**
-	 * Initialize the timezone.
-	 *
-	 * This function should be called before any calls to date().
-	 */
-	public static function initTimezone() {
-		static $initialized = FALSE;
-
-		if ($initialized) {
-			return;
-		}
-
-		$initialized = TRUE;
-
-		$globalConfig = SimpleSAML_Configuration::getInstance();
-
-		$timezone = $globalConfig->getString('timezone', NULL);
-		if ($timezone !== NULL) {
-			if (!date_default_timezone_set($timezone)) {
-				throw new SimpleSAML_Error_Exception('Invalid timezone set in the \'timezone\'-option in config.php.');
-			}
-			return;
-		}
-
-		/* We don't have a timezone configured. */
-
-		/*
-		 * The date_default_timezone_get()-function is likely to cause a warning.
-		 * Since we have a custom error handler which logs the errors with a backtrace,
-		 * this error will be logged even if we prefix the function call with '@'.
-		 * Instead we temporarily replace the error handler.
-		 */
-		function ignoreError() {
-			/* Don't do anything with this error. */
-			return TRUE;
-		}
-		set_error_handler('ignoreError');
-		$serverTimezone = date_default_timezone_get();
-		restore_error_handler();
-
-		/* Set the timezone to the default. */
-		date_default_timezone_set($serverTimezone);
-	}
-
-
-	/**
-	 * Atomically write a file.
-	 *
-	 * This is a helper function for safely writing file data atomically.
-	 * It does this by writing the file data to a temporary file, and then
-	 * renaming this to the correct name.
-	 *
-	 * @param string $filename  The name of the file.
-	 * @param string $data  The data we should write to the file.
-	 */
-	public static function writeFile($filename, $data) {
-		assert('is_string($filename)');
-		assert('is_string($data)');
-
-		$tmpFile = $filename . '.new.' . getmypid() . '.' . php_uname('n');
-
-		$res = file_put_contents($tmpFile, $data);
-		if ($res === FALSE) {
-			throw new SimpleSAML_Error_Exception('Error saving file ' . $tmpFile .
-				': ' . SimpleSAML_Utilities::getLastError());
-		}
-
-		$res = rename($tmpFile, $filename);
-		if ($res === FALSE) {
-			unlink($tmpFile);
-			throw new SimpleSAML_Error_Exception('Error renaming ' . $tmpFile . ' to ' .
-				$filename . ': ' . SimpleSAML_Utilities::getLastError());
-		}
-	}
-
-
-	/**
-	 * Get temp directory path.
-	 *
-	 * This function retrieves the path to a directory where
-	 * temporary files can be saved.
-	 *
-	 * @return string  Path to temp directory, without a trailing '/'.
-	 */
-	public static function getTempDir() {
-
-		$globalConfig = SimpleSAML_Configuration::getInstance();
-
-		$tempDir = $globalConfig->getString('tempdir', '/tmp/simplesaml');
-
-		while (substr($tempDir, -1) === '/') {
-			$tempDir = substr($tempDir, 0, -1);
-		}
-
-		if (!is_dir($tempDir)) {
-			$ret = mkdir($tempDir, 0700, TRUE);
-			if (!$ret) {
-				throw new SimpleSAML_Error_Exception('Error creating temp dir ' .
-					var_export($tempDir, TRUE) . ': ' . SimpleSAML_Utilities::getLastError());
-			}
-		} elseif (function_exists('posix_getuid')) {
-
-			/* Check that the owner of the temp diretory is the current user. */
-			$stat = lstat($tempDir);
-			if ($stat['uid'] !== posix_getuid()) {
-				throw new SimpleSAML_Error_Exception('Temp directory (' . var_export($tempDir, TRUE) .
-					') not owned by current user.');
-			}
-		}
-
-		return $tempDir;
-	}
-
-
-	/**
-	 * Disable reporting of the given log levels.
-	 *
-	 * Every call to this function must be followed by a call to popErrorMask();
-	 *
-	 * @param int $mask  The log levels that should be masked.
-	 */
-	public static function maskErrors($mask) {
-		assert('is_int($mask)');
-
-		$currentEnabled = error_reporting();
-		self::$logLevelStack[] = array($currentEnabled, self::$logMask);
-
-		$currentEnabled &= ~$mask;
-		error_reporting($currentEnabled);
-		self::$logMask |= $mask;
-	}
-
-
-	/**
-	 * Pop an error mask.
-	 *
-	 * This function restores the previous error mask.
-	 */
-	public static function popErrorMask() {
-
-		$lastMask = array_pop(self::$logLevelStack);
-		error_reporting($lastMask[0]);
-		self::$logMask = $lastMask[1];
-	}
-
-
-	/**
-	 * Find the default endpoint in an endpoint array.
-	 *
-	 * @param array $endpoints  Array with endpoints.
-	 * @param array $bindings  Array with acceptable bindings. Can be NULL if any binding is allowed.
-	 * @return  array|NULL  The default endpoint, or NULL if no acceptable endpoints are used.
-	 */
-	public static function getDefaultEndpoint(array $endpoints, array $bindings = NULL) {
-
-		$firstNotFalse = NULL;
-		$firstAllowed = NULL;
-
-		/* Look through the endpoint list for acceptable endpoints. */
-		foreach ($endpoints as $i => $ep) {
-			if ($bindings !== NULL && !in_array($ep['Binding'], $bindings, TRUE)) {
-				/* Unsupported binding. Skip it. */
-				continue;
-			}
-
-			if (array_key_exists('isDefault', $ep)) {
-				if ($ep['isDefault'] === TRUE) {
-					/* This is the first endpoitn with isDefault set to TRUE. */
-					return $ep;
-				}
-				/* isDefault is set to FALSE, but the endpoint is still useable as a last resort. */
-				if ($firstAllowed === NULL) {
-					/* This is the first endpoint that we can use. */
-					$firstAllowed = $ep;
-				}
-			} else {
-				if ($firstNotFalse === NULL) {
-					/* This is the first endpoint without isDefault set. */
-					$firstNotFalse = $ep;
-				}
-			}
-		}
-
-		if ($firstNotFalse !== NULL) {
-			/* We have an endpoint without isDefault set to FALSE. */
-			return $firstNotFalse;
-		}
-
-		/*
-		 * $firstAllowed either contains the first endpoint we can use, or it
-		 * contains NULL if we cannot use any of the endpoints. Either way we
-		 * return the value of it.
-		 */
-		return $firstAllowed;
-	}
-
-
-	/**
-	 * Retrieve the authority for the given IdP metadata.
-	 *
-	 * This function provides backwards-compatibility with
-	 * previous versions of simpleSAMLphp.
-	 *
-	 * @param array $idpmetadata  The IdP metadata.
-	 * @return string  The authority that should be used to validate the session.
-	 */
-	public static function getAuthority(array $idpmetadata) {
-
-		if (isset($idpmetadata['authority'])) {
-			return $idpmetadata['authority'];
-		}
-
-		$candidates = array(
-			'auth/login-admin.php' => 'login-admin',
-			'auth/login-auto.php' => 'login-auto',
-			'auth/login-cas-ldap.php' => 'login-cas-ldap',
-			'auth/login-feide.php' => 'login-feide',
-			'auth/login-ldapmulti.php' => 'login-ldapmulti',
-			'auth/login-radius.php' => 'login-radius',
-			'auth/login-tlsclient.php' => 'tlsclient',
-			'auth/login-wayf-ldap.php' => 'login-wayf-ldap',
-			'auth/login.php' => 'login',
-		);
-		if (isset($candidates[$idpmetadata['auth']])) {
-			return $candidates[$idpmetadata['auth']];
-		}
-		throw new SimpleSAML_Error_Exception('You need to set \'authority\' in the metadata for ' .
-			var_export($idpmetadata['entityid'], TRUE) . '.');
-	}
-
-
-	/**
-	 * Check for session cookie, and show missing-cookie page if it is missing.
-	 *
-	 * @param string|NULL $retryURL  The URL the user should access to retry the operation.
-	 */
-	public static function checkCookie($retryURL = NULL) {
-		assert('is_string($retryURL) || is_null($retryURL)');
-
-		$session = SimpleSAML_Session::getInstance();
-		if ($session->hasSessionCookie()) {
-			return;
-		}
-
-		/* We didn't have a session cookie. Redirect to the no-cookie page. */
-
-		$url = SimpleSAML_Module::getModuleURL('core/no_cookie.php');
-		if ($retryURL !== NULL) {
-			$url = SimpleSAML_Utilities::addURLParameter($url, array('retryURL' => $retryURL));
-		}
-		SimpleSAML_Utilities::redirect($url);
 	}
 
 }

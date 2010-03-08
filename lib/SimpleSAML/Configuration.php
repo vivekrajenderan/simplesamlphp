@@ -76,36 +76,28 @@ class SimpleSAML_Configuration {
 	 * Load the given configuration file.
 	 *
 	 * @param string $filename  The full path of the configuration file.
-	 * @param bool @required  Whether the file is required.
 	 * @return SimpleSAML_Configuration  The configuration file. An exception will be thrown if the
 	 *                                   configuration file is missing.
 	 */
-	private static function loadFromFile($filename, $required) {
+	private static function loadFromFile($filename) {
 		assert('is_string($filename)');
-		assert('is_bool($required)');
 
 		if (array_key_exists($filename, self::$loadedConfigs)) {
 			return self::$loadedConfigs[$filename];
 		}
 
-		if (file_exists($filename)) {
-			$config = 'UNINITIALIZED';
-
-			/* The file initializes a variable named '$config'. */
-			require($filename);
-
-			/* Check that $config is initialized to an array. */
-			if (!is_array($config)) {
-				throw new Exception('Invalid configuration file: ' . $filename);
-			}
-
-		} elseif ($required) {
-			/* File does not exist, but is required. */
+		if (!file_exists($filename)) {
 			throw new Exception('Missing configuration file: ' . $filename);
+		}
 
-		} else {
-			/* File does not exist, but is optional. */
-			$config = array();
+		$config = 'UNINITIALIZED';
+
+		/* The file initializes a variable named '$config'. */
+		require_once($filename);
+
+		/* Check that $config is initialized to an array. */
+		if (!is_array($config)) {
+			throw new Exception('Invalid configuration file: ' . $filename);
 		}
 
 		if (array_key_exists('override.host', $config)) {
@@ -156,43 +148,12 @@ class SimpleSAML_Configuration {
 		assert('is_string($configSet)');
 
 		if (!array_key_exists($configSet, self::$configDirs)) {
-			if ($configSet !== 'simplesaml') {
-				throw new Exception('Configuration set \'' . $configSet . '\' not initialized.');
-			} else {
-				self::$configDirs['simplesaml'] = dirname(dirname(dirname(__FILE__))) . '/config';
-			}
+			throw new Exception('Configuration set \'' . $configSet . '\' not initialized.');
 		}
 
 		$dir = self::$configDirs[$configSet];
 		$filePath = $dir . '/' . $filename;
-		return self::loadFromFile($filePath, TRUE);
-	}
-
-
-	/**
-	 * Load a configuration file from a configuration set.
-	 *
-	 * This function will return a configuration object even if the file does not exist.
-	 *
-	 * @param string $filename  The name of the configuration file.
-	 * @param string $configSet  The configuration set. Optional, defaults to 'simplesaml'.
-	 * @return SimpleSAML_Configuration  A configuration object.
-	 */
-	public static function getOptionalConfig($filename = 'config.php', $configSet = 'simplesaml') {
-		assert('is_string($filename)');
-		assert('is_string($configSet)');
-
-		if (!array_key_exists($configSet, self::$configDirs)) {
-			if ($configSet !== 'simplesaml') {
-				throw new Exception('Configuration set \'' . $configSet . '\' not initialized.');
-			} else {
-				self::$configDirs['simplesaml'] = dirname(dirname(dirname(__FILE__))) . '/config';
-			}
-		}
-
-		$dir = self::$configDirs[$configSet];
-		$filePath = $dir . '/' . $filename;
-		return self::loadFromFile($filePath, FALSE);
+		return self::loadFromFile($filePath);
 	}
 
 
@@ -257,7 +218,7 @@ class SimpleSAML_Configuration {
 			return self::$instance[$instancename];
 		}
 
-		self::$instance[$instancename] = self::loadFromFile($path . '/' . $configfilename, TRUE);
+		self::$instance[$instancename] = self::loadFromFile($path . '/' . $configfilename);
 	}
 
 
@@ -284,13 +245,14 @@ class SimpleSAML_Configuration {
 			self::setConfigDir($path, 'simplesaml');
 		}
 
-		self::$instance[$instancename] = self::loadFromFile($dir . '/' . $filename, TRUE);
+		self::$instance[$instancename] = self::loadFromFile($dir . '/' . $filename);
 		return self::$instance[$instancename];
 	}
 
 
 	public function getVersion($verbose = FALSE) {
-		return 'trunk';
+		#return 'trunk post-1.3';
+		return 'trunk 1.4';
 	}
 
 
@@ -335,11 +297,10 @@ class SimpleSAML_Configuration {
 	
 	
 	public function getBaseURL() {
-		if (preg_match('/^\*(.*)$/D', $this->getString('baseurlpath', 'simplesaml/'), $matches)) {
+		if (preg_match('/^\*(.*)$/', $this->getValue('baseurlpath', ''), $matches)) {
 			return SimpleSAML_Utilities::getFirstPathElement(false) . $matches[1];
 		}
-
-		return $this->getString('baseurlpath', 'simplesaml/');
+		return $this->getValue('baseurlpath', '');
 	}
 
 
@@ -415,7 +376,7 @@ class SimpleSAML_Configuration {
 		/* Check if a directory is configured in the configuration
 		 * file.
 		 */
-		$dir = $this->getString('basedir', NULL);
+		$dir = $this->getValue('basedir');
 		if($dir !== NULL) {
 			/* Add trailing slash if it is missing. */
 			if(substr($dir, -1) !== '/') {
@@ -514,79 +475,6 @@ class SimpleSAML_Configuration {
 
 
 	/**
-	 * This function retrieves an integer configuration option.
-	 *
-	 * An exception will be thrown if this option isn't an integer, or if this option isn't found, and no
-	 * default value is given.
-	 *
-	 * @param $name  The name of the option.
-	 * @param $default  A default value which will be returned if the option isn't found. The option will be
-	 *                  required if this parameter isn't given. The default value can be any value, including
-	 *                  NULL.
-	 * @return  The option with the given name, or $default if the option isn't found and $default is specified.
-	 */
-	public function getInteger($name, $default = self::REQUIRED_OPTION) {
-		assert('is_string($name)');
-
-		$ret = $this->getValue($name, $default);
-
-		if($ret === $default) {
-			/* The option wasn't found, or it matches the default value. In any case, return
-			 * this value.
-			 */
-			return $ret;
-		}
-
-		if(!is_int($ret)) {
-			throw new Exception($this->location . ': The option ' . var_export($name, TRUE) .
-				' is not a valid string value.');
-		}
-
-		return $ret;
-	}
-
-
-	/**
-	 * This function retrieves an integer configuration option where the value must be in the specified range.
-	 *
-	 * An exception will be thrown if:
-	 * - the option isn't an integer
-	 * - the option isn't found, and no default value is given
-	 * - the value is outside of the allowed range
-	 *
-	 * @param $name  The name of the option.
-	 * @param $minimum  The smallest value which is allowed.
-	 * @param $maximum  The largest value which is allowed.
-	 * @param $default  A default value which will be returned if the option isn't found. The option will be
-	 *                  required if this parameter isn't given. The default value can be any value, including
-	 *                  NULL.
-	 * @return  The option with the given name, or $default if the option isn't found and $default is specified.
-	 */
-	public function getIntegerRange($name, $minimum, $maximum, $default = self::REQUIRED_OPTION) {
-		assert('is_string($name)');
-		assert('is_int($minimum)');
-		assert('is_int($maximum)');
-
-		$ret = $this->getInteger($name, $default);
-
-		if($ret === $default) {
-			/* The option wasn't found, or it matches the default value. In any case, return
-			 * this value.
-			 */
-			return $ret;
-		}
-
-		if ($ret < $minimum || $ret > $maximum) {
-			throw new Exception($this->location . ': Value of option ' . var_export($name, TRUE) .
-				' is out of range. Value is ' . $ret . ', allowed range is ['
-				. $minimum . ' - ' . $maximum . ']');
-		}
-
-		return $ret;
-	}
-
-
-	/**
 	 * Retrieve a configuration option with one of the given values.
 	 *
 	 * This will check that the configuration option matches one of the given values. The match will use
@@ -659,71 +547,6 @@ class SimpleSAML_Configuration {
 		if (!is_array($ret)) {
 			throw new Exception($this->location . ': The option ' . var_export($name, TRUE) .
 				' is not an array.');
-		}
-
-		return $ret;
-	}
-
-
-	/**
-	 * This function retrieves an array configuration option.
-	 *
-	 * If the configuration option isn't an array, it will be converted to an array.
-	 *
-	 * @param string $name  The name of the option.
-	 * @param mixed $default  A default value which will be returned if the option isn't found. The option will be
-	 *                       required if this parameter isn't given. The default value can be any value, including
-	 *                       NULL.
-	 * @return array  The option with the given name, or $default if the option isn't found and $default is specified.
-	 */
-	public function getArrayize($name, $default = self::REQUIRED_OPTION) {
-		assert('is_string($name)');
-
-		$ret = $this->getValue($name, $default);
-
-		if ($ret === $default) {
-			/* The option wasn't found, or it matches the default value. In any case, return
-			 * this value.
-			 */
-			return $ret;
-		}
-
-		if (!is_array($ret)) {
-			$ret = array($ret);
-		}
-
-		return $ret;
-	}
-
-
-	/**
-	 * This function retrieves a configuration option with a string or an array of strings.
-	 *
-	 * If the configuration option is a string, it will be converted to an array with a single string
-	 *
-	 * @param string $name  The name of the option.
-	 * @param mixed $default  A default value which will be returned if the option isn't found. The option will be
-	 *                       required if this parameter isn't given. The default value can be any value, including
-	 *                       NULL.
-	 * @return array  The option with the given name, or $default if the option isn't found and $default is specified.
-	 */
-	public function getArrayizeString($name, $default = self::REQUIRED_OPTION) {
-		assert('is_string($name)');
-
-		$ret = $this->getArrayize($name, $default);
-
-		if ($ret === $default) {
-			/* The option wasn't found, or it matches the default value. In any case, return
-			 * this value.
-			 */
-			return $ret;
-		}
-
-		foreach ($ret as $value) {
-			if (!is_string($value)) {
-				throw new Exception($this->location . ': The option ' . var_export($name, TRUE) .
-					' must be a string or an array of strings.');
-			}
 		}
 
 		return $ret;
@@ -826,192 +649,6 @@ class SimpleSAML_Configuration {
 	public function getOptions() {
 
 		return array_keys($this->configuration);
-	}
-
-
-	/**
-	 * Convert this configuration object back to an array.
-	 *
-	 * @return array  An associative array with all configuration options and values.
-	 */
-	public function toArray() {
-
-		return $this->configuration;
-	}
-
-
-	/**
-	 * Retrieve the default binding for the given endpoint type.
-	 *
-	 * This function combines the current metadata type (saml 2 / saml 1.1)
-	 * with the endpoint type to determine which binding is the default.
-	 *
-	 * @param string $endpointType  The endpoint type.
-	 * @return string  The default binding.
-	 */
-	private function getDefaultBinding($endpointType) {
-		assert('is_string($endpointType)');
-
-		$set = $this->getString('metadata-set');
-		switch ($set.':'.$endpointType) {
-		case 'saml20-idp-remote:SingleSignOnService':
-		case 'saml20-idp-remote:SingleLogoutService':
-		case 'saml20-sp-remote:SingleLogoutService':
-			return SAML2_Const::BINDING_HTTP_REDIRECT;
-		case 'saml20-sp-remote:AssertionConsumerService':
-			return SAML2_Const::BINDING_HTTP_POST;
-		case 'saml20-idp-remote:ArtifactResolutionService':
-			return SAML2_Const::BINDING_SOAP;
-		case 'shib13-idp-remote:SingleSignOnService':
-			return 'urn:mace:shibboleth:1.0:profiles:AuthnRequest';
-		case 'shib13-sp-remote:AssertionConsumerService':
-			return 'urn:oasis:names:tc:SAML:1.0:profiles:browser-post';
-		default:
-			throw new Exception('Missing default binding for ' . $endpointType . ' in ' . $set);
-		}
-	}
-
-
-	/**
-	 * Helper function for dealing with metadata endpoints.
-	 *
-	 * @param string $endpointType  The endpoint type.
-	 * @return array  Array of endpoints of the given type.
-	 */
-	public function getEndpoints($endpointType) {
-		assert('is_string($endpointType)');
-
-		$loc = $this->location . '[' . var_export($endpointType, TRUE) . ']:';
-
-		if (!array_key_exists($endpointType, $this->configuration)) {
-			/* No endpoints of the given type. */
-			return array();
-		}
-
-
-		$eps = $this->configuration[$endpointType];
-		if (is_string($eps)) {
-			/* For backwards-compatibility. */
-			$eps = array($eps);
-		} elseif (!is_array($eps)) {
-			throw new Exception($loc . ': Expected array or string.');
-		}
-
-
-		foreach ($eps as $i => &$ep) {
-			$iloc = $loc . '[' . var_export($i, TRUE) . ']';
-
-			if (is_string($ep)) {
-				/* For backwards-compatibility. */
-				$ep = array(
-					'Location' => $ep,
-					'Binding' => $this->getDefaultBinding($endpointType),
-				);
-				$responseLocation = $this->getString($endpointType . 'Response', NULL);
-				if ($responseLocation !== NULL) {
-					$ep['ResponseLocation'] = $responseLocation;
-				}
-			} elseif (!is_array($ep)) {
-				throw new Exception($iloc . ': Expected a string or an array.');
-			}
-
-			if (!array_key_exists('Location', $ep)) {
-				throw new Exception($iloc . ': Missing Location.');
-			}
-			if (!is_string($ep['Location'])) {
-				throw new Exception($iloc . ': Location must be a string.');
-			}
-
-			if (!array_key_exists('Binding', $ep)) {
-				throw new Exception($iloc . ': Missing Binding.');
-			}
-			if (!is_string($ep['Binding'])) {
-				throw new Exception($iloc . ': Binding must be a string.');
-			}
-
-			if (array_key_exists('ResponseLocation', $ep)) {
-				if (!is_string($ep['ResponseLocation'])) {
-					throw new Exception($iloc . ': ResponseLocation must be a string.');
-				}
-			}
-
-			if (array_key_exists('index', $ep)) {
-				if (!is_int($ep['index'])) {
-					throw new Exception($iloc . ': index must be an integer.');
-				}
-			}
-
-		}
-
-		return $eps;
-	}
-
-
-	/**
-	 * Find the default endpoint of the given type.
-	 *
-	 * @param string $endpointType  The endpoint type.
-	 * @param array $bindings  Array with acceptable bindings. Can be NULL if any binding is allowed.
-	 * @param mixed $default  The default value to return if no matching endpoint is found. If no default is provided, an exception will be thrown.
-	 * @return  array|NULL  The default endpoint, or NULL if no acceptable endpoints are used.
-	 */
-	public function getDefaultEndpoint($endpointType, array $bindings = NULL, $default = self::REQUIRED_OPTION) {
-		assert('is_string($endpointType)');
-
-		$endpoints = $this->getEndpoints($endpointType);
-		$defaultEndpoint = SimpleSAML_Utilities::getDefaultEndpoint($endpoints, $bindings);
-		if ($defaultEndpoint !== NULL) {
-			return $defaultEndpoint;
-		}
-
-		if ($default === self::REQUIRED_OPTION) {
-			$loc = $this->location . '[' . var_export($endpointType, TRUE) . ']:';
-			throw new Exception($loc . 'Could not find a supported ' . $endpointType . ' endpoint.');
-		}
-
-		return $default;
-	}
-
-
-	/**
-	 * Retrieve a string which may be localized into many languages.
-	 *
-	 * The default language returned is always 'en'.
-	 * @param string $name  The name of the option.
-	 * @param mixed $default  The default value. If no default is given, and the option isn't found, an exception will be thrown.
-	 * @return array  Associative array with language=>string pairs.
-	 */
-	public function getLocalizedString($name, $default = self::REQUIRED_OPTION) {
-		assert('is_string($name)');
-
-		$ret = $this->getValue($name, $default);
-		if($ret === $default) {
-			/* The option wasn't found, or it matches the default value. In any case, return
-			 * this value.
-			 */
-			return $ret;
-		}
-
-		$loc = $this->location . '[' . var_export($name, TRUE) . ']';
-
-		if (is_string($ret)) {
-			$ret = array('en' => $ret,);
-		}
-
-		if (!is_array($ret)) {
-			throw new Exception($loc . ': Must be an array or a string.');
-		}
-
-		foreach ($ret as $k => $v) {
-			if (!is_string($k)) {
-				throw new Exception($loc . ': Invalid language code: ' . var_export($k, TRUE));
-			}
-			if (!is_string($v)) {
-				throw new Exception($loc . '[' . var_export($v, TRUE) . ']: Must be a string.');
-			}
-		}
-
-		return $ret;
 	}
 
 }

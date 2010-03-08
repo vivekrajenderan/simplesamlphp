@@ -25,21 +25,6 @@ class sspmod_statistics_LogParser {
 
 	public function parseEpoch($line) {
 		$epoch = strtotime(substr($line, 0, $this->datelength));
-		if ($epoch > time() + 60*60*24*31) {
-			/*
-			 * More than a month in the future - probably caused by
-			 * the log files missing the year.
-			 * We will therefore subtrackt one year.
-			 */
-			$hour = gmdate('H', $epoch);
-			$minute = gmdate('i', $epoch);
-			$second = gmdate('s', $epoch);
-			$month = gmdate('n', $epoch);
-			$day = gmdate('j', $epoch);
-			$year = gmdate('Y', $epoch) - 1;
-			$epoch = gmmktime($hour, $minute, $second, $month, $day, $year);
-		}
-
 // 		echo 'debug   ' . $line . "\n";
 // 		echo 'debug   [' . substr($line, 0, $this->datelength)  . '] => [' . $epoch . ']' . "\n";
 		return $epoch;
@@ -47,7 +32,7 @@ class sspmod_statistics_LogParser {
 
 	public function parseContent($line) {
 		$contentstr = substr($line, $this->offset);
-		$content = explode(' ', $contentstr);
+		$content = split(' ', $contentstr);
 		return $content;
 	}
 	

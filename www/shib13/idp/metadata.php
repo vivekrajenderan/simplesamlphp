@@ -7,12 +7,16 @@ $config = SimpleSAML_Configuration::getInstance();
 $metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
 $session = SimpleSAML_Session::getInstance();
 
-if (!$config->getBoolean('enable.shib13-idp', false))
+if (!$config->getValue('enable.shib13-idp', false))
 	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOACCESS');
 
 /* Check if valid local session exists.. */
-if ($config->getBoolean('admin.protectmetadata', false)) {
-	SimpleSAML_Utilities::requireAdmin();
+if ($config->getValue('admin.protectmetadata', false)) {
+	if (!isset($session) || !$session->isValid('login-admin') ) {
+		SimpleSAML_Utilities::redirect('/' . $config->getBaseURL() . 'auth/login-admin.php',
+			array('RelayState' => SimpleSAML_Utilities::selfURL())
+		);
+	}
 }
 
 
@@ -29,8 +33,6 @@ try {
 	}
 
 	$metaArray = array(
-		'metadata-set' => 'shib13-idp-remote',
-		'entityid' => $idpentityid,
 		'SingleSignOnService' => $metadata->getGenerated('SingleSignOnService', 'shib13-idp-hosted'),
 		'certFingerprint' => $certFingerprint,
 	);
@@ -40,32 +42,25 @@ try {
 	} else {
 		$metaArray['NameIDFormat'] = 'urn:mace:shibboleth:1.0:nameIdentifier';
 	}
-
-	if (!empty($idpmeta['OrganizationName'])) {
-		$metaArray['OrganizationName'] = $idpmeta['OrganizationName'];
-
-		if (!empty($idpmeta['OrganizationDisplayName'])) {
-			$metaArray['OrganizationDisplayName'] = $idpmeta['OrganizationDisplayName'];
-		} else {
-			$metaArray['OrganizationDisplayName'] = $idpmeta['OrganizationName'];
-		}
-
-		if (empty($idpmeta['OrganizationURL'])) {
-			throw new SimpleSAML_Error_Exception('If OrganizationName is set, OrganizationURL must also be set.');
-		}
-		$metaArray['OrganizationURL'] = $idpmeta['OrganizationURL'];
+	if (array_key_exists('name', $idpmeta)) {
+		$metaArray['name'] = $idpmeta['name'];
+	}
+	if (array_key_exists('description', $idpmeta)) {
+		$metaArray['description'] = $idpmeta['description'];
+	}
+	if (array_key_exists('url', $idpmeta)) {
+		$metaArray['url'] = $idpmeta['url'];
 	}
 
 
-	$metaflat = '$metadata[' . var_export($idpentityid, TRUE) . '] = ' . var_export($metaArray, TRUE) . ';';
+	$metaflat = var_export($idpentityid, TRUE) . ' => ' . var_export($metaArray, TRUE) . ',';
 	
 	$metaArray['certData'] = $certInfo['certData'];
 	$metaBuilder = new SimpleSAML_Metadata_SAMLBuilder($idpentityid);
 	$metaBuilder->addMetadataIdP11($metaArray);
-	$metaBuilder->addOrganizationInfo($metaArray);
 	$metaBuilder->addContact('technical', array(
-		'emailAddress' => $config->getString('technicalcontact_email', NULL),
-		'name' => $config->getString('technicalcontact_name', NULL),
+		'emailAddress' => $config->getValue('technicalcontact_email'),
+		'name' => $config->getValue('technicalcontact_name'),
 		));
 	$metaxml = $metaBuilder->getEntityDescriptorText();
 
@@ -74,7 +69,7 @@ try {
 	
 	
 	if (array_key_exists('output', $_GET) && $_GET['output'] == 'xhtml') {
-		$defaultidp = $config->getString('default-shib13-idp', NULL);
+		$defaultidp = $config->getValue('default-shib13-idp');
 		
 		$t = new SimpleSAML_XHTML_Template($config, 'metadata.php', 'admin');
 	

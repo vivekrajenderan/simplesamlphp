@@ -1,4 +1,5 @@
 <?php
+$this->data['icon'] = 'lock.png';
 $this->data['header'] = $this->t('{login:user_pass_header}');
 
 if (strlen($this->data['username']) > 0) {
@@ -9,12 +10,13 @@ if (strlen($this->data['username']) > 0) {
 $this->includeAtTemplateBase('includes/header.php');
 
 ?>
+<div id="content">
 
 <?php
 if ($this->data['errorcode'] !== NULL) {
 ?>
 	<div style="border-left: 1px solid #e8e8e8; border-bottom: 1px solid #e8e8e8; background: #f5f5f5">
-		<img src="/<?php echo $this->data['baseurlpath']; ?>resources/icons/experience/gtk-dialog-error.48x48.png" style="float: left; margin: 15px " />
+		<img src="/<?php echo $this->data['baseurlpath']; ?>resources/icons/bomb.png" style="float: left; margin: 15px " />
 		<h2><?php echo $this->t('{login:error_header}'); ?></h2>
 		<p><b><?php echo $this->t('{errors:title_' . $this->data['errorcode'] . '}'); ?></b></p>
 		<p><?php echo $this->t('{errors:descr_' . $this->data['errorcode'] . '}'); ?></p>
@@ -29,17 +31,9 @@ if ($this->data['errorcode'] !== NULL) {
 	<form action="?" method="post" name="f">
 	<table>
 		<tr>
-			<td rowspan="3"><img src="/<?php echo $this->data['baseurlpath']; ?>resources/icons/experience/gtk-dialog-authentication.48x48.png" alt="" /></td>
+			<td rowspan="3"><img src="/<?php echo $this->data['baseurlpath']; ?>resources/icons/pencil.png" alt="" /></td>
 			<td style="padding: .3em;"><?php echo $this->t('{login:username}'); ?></td>
-			<td>
-<?php
-if ($this->data['forceUsername']) {
-	echo '<strong style="font-size: medium">' . htmlspecialchars($this->data['username']) . '</strong>';
-} else {
-	echo '<input type="text" id="username" tabindex="1" name="username" value="' . htmlspecialchars($this->data['username']) . '" />';
-}
-?>
-			</td>
+			<td><input type="text" id="username" tabindex="1" name="username" value="<?php echo htmlspecialchars($this->data['username']); ?>" /></td>
 			<td style="padding: .4em;" rowspan="3">
 				<input type="submit" tabindex="4" value="<?php echo $this->t('{login:login_button}'); ?>" />
 			</td>

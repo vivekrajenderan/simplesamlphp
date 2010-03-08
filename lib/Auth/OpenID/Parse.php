@@ -75,8 +75,8 @@
  * @access private
  * @package OpenID
  * @author JanRain, Inc. <openid@janrain.com>
- * @copyright 2005-2008 Janrain, Inc.
- * @license http://www.apache.org/licenses/LICENSE-2.0 Apache
+ * @copyright 2005 Janrain, Inc.
+ * @license http://www.gnu.org/copyleft/lesser.html LGPL
  */
 
 /**
@@ -104,9 +104,6 @@ class Auth_OpenID_Parse {
     var $_tag_expr = "<%s\b(?!:)([^>]*?)(?:\/>|>(.*?)(?:<\/?%s\s*>|\Z))";
 
     var $_attr_find = '\b(\w+)=("[^"]*"|\'[^\']*\'|[^\'"\s\/<>]+)';
-
-    var $_open_tag_expr = "<%s\b";
-    var $_close_tag_expr = "<((\/%s\b)|(%s[^>\/]*\/))>";
 
     function Auth_OpenID_Parse()
     {
@@ -139,8 +136,6 @@ class Auth_OpenID_Parse {
      */
     function tagMatcher($tag_name, $close_tags = null)
     {
-        $expr = $this->_tag_expr;
-
         if ($close_tags) {
             $options = implode("|", array_merge(array($tag_name), $close_tags));
             $closer = sprintf("(?:%s)", $options);
@@ -148,49 +143,18 @@ class Auth_OpenID_Parse {
             $closer = $tag_name;
         }
 
-        $expr = sprintf($expr, $tag_name, $closer);
+        $expr = sprintf($this->_tag_expr, $tag_name, $closer);
         return sprintf("/%s/%s", $expr, $this->_re_flags);
     }
 
-    function openTag($tag_name)
+    function htmlFind()
     {
-        $expr = sprintf($this->_open_tag_expr, $tag_name);
-        return sprintf("/%s/%s", $expr, $this->_re_flags);
-    }
-
-    function closeTag($tag_name)
-    {
-        $expr = sprintf($this->_close_tag_expr, $tag_name, $tag_name);
-        return sprintf("/%s/%s", $expr, $this->_re_flags);
-    }
-
-    function htmlBegin($s)
-    {
-        $matches = array();
-        $result = preg_match($this->openTag('html'), $s,
-                             $matches, PREG_OFFSET_CAPTURE);
-        if ($result === false || !$matches) {
-            return false;
-        }
-        // Return the offset of the first match.
-        return $matches[0][1];
-    }
-
-    function htmlEnd($s)
-    {
-        $matches = array();
-        $result = preg_match($this->closeTag('html'), $s,
-                             $matches, PREG_OFFSET_CAPTURE);
-        if ($result === false || !$matches) {
-            return false;
-        }
-        // Return the offset of the first match.
-        return $matches[count($matches) - 1][1];
+        return $this->tagMatcher('html');
     }
 
     function headFind()
     {
-        return $this->tagMatcher('head', array('body', 'html'));
+        return $this->tagMatcher('head', array('body'));
     }
 
     function replaceEntities($str)
@@ -230,24 +194,17 @@ class Auth_OpenID_Parse {
                                  "",
                                  $html);
 
-        $html_begin = $this->htmlBegin($stripped);
-        $html_end = $this->htmlEnd($stripped);
-
-        if ($html_begin === false) {
+        // Try to find the <HTML> tag.
+        $html_re = $this->htmlFind();
+        $html_matches = array();
+        if (!preg_match($html_re, $stripped, $html_matches)) {
             return array();
         }
-
-        if ($html_end === false) {
-            $html_end = strlen($stripped);
-        }
-
-        $stripped = substr($stripped, $html_begin,
-                           $html_end - $html_begin);
 
         // Try to find the <HEAD> tag.
         $head_re = $this->headFind();
         $head_matches = array();
-        if (!preg_match($head_re, $stripped, $head_matches)) {
+        if (!preg_match($head_re, $html_matches[0], $head_matches)) {
             return array();
         }
 

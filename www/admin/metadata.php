@@ -8,7 +8,11 @@ $session = SimpleSAML_Session::getInstance();
 
 
 /* Check if valid local session exists.. */
-SimpleSAML_Utilities::requireAdmin();
+if (!isset($session) || !$session->isValid('login-admin') ) {
+	SimpleSAML_Utilities::redirect('/' . $config->getBaseURL() . 'auth/login-admin.php',
+		array('RelayState' => SimpleSAML_Utilities::selfURL())
+	);
+}
 
 
 try {
@@ -18,14 +22,14 @@ try {
 	$et = new SimpleSAML_XHTML_Template($config, 'admin-metadatalist.php', 'admin');
 
 
-	if ($config->getBoolean('enable.saml20-sp', TRUE) === true) {
+	if ($config->getValue('enable.saml20-sp') === true) {
 		$results = array();	
 		
 		$metalist = $metadata->getList('saml20-sp-hosted');
 		foreach ($metalist AS $entityid => $mentry) {
 			$results[$entityid] = SimpleSAML_Utilities::checkAssocArrayRules($mentry,
 				array('entityid', 'host'),
-				array('redirect.sign','redirect.validate','certificate','privatekey', 'privatekey_pass', 'NameIDFormat', 'ForceAuthn', 'AuthnContextClassRef', 'SPNameQualifier', 'attributes', 'metadata.sign.enable', 'metadata.sign.privatekey', 'metadata.sign.privatekey_pass', 'metadata.sign.certificate', 'idpdisco.url', 'authproc', 'certData', 'OrganizationName', 'OrganizationDisplayName', 'OrganizationURL')
+				array('redirect.sign','redirect.validate','certificate','privatekey', 'privatekey_pass', 'NameIDFormat', 'ForceAuthn', 'AuthnContextClassRef', 'SPNameQualifier', 'attributemap', 'attributealter', 'attributes', 'metadata.sign.enable', 'metadata.sign.privatekey', 'metadata.sign.privatekey_pass', 'metadata.sign.certificate', 'idpdisco.url')
 			);
 		}
 		$et->data['metadata.saml20-sp-hosted'] = $results;
@@ -35,7 +39,7 @@ try {
 		foreach ($metalist AS $entityid => $mentry) {
 			$results[$entityid] = SimpleSAML_Utilities::checkAssocArrayRules($mentry,
 				array('entityid', 'SingleSignOnService', 'SingleLogoutService', 'certFingerprint'),
-				array('name', 'description', 'base64attributes', 'certificate', 'hint.cidr', 'saml2.relaxvalidation', 'SingleLogoutServiceResponse', 'redirect.sign', 'redirect.validate', 'sharedkey', 'assertion.encryption', 'icon', 'authproc', 'certData', 'send_metadata_email', 'OrganizationName', 'OrganizationDisplayName', 'OrganizationURL')
+				array('name', 'description', 'base64attributes', 'certificate', 'hint.cidr', 'saml2.relaxvalidation', 'SingleLogoutServiceResponse', 'redirect.sign', 'redirect.validate', 'attributemap', 'attributealter', 'sharedkey', 'assertion.encryption', 'icon')
 			);
 			$index = array_search('certFingerprint', $results[$entityid]['required.notfound']);
 			if ($index !== FALSE) {
@@ -48,13 +52,13 @@ try {
 		
 	}
 	
-	if ($config->getBoolean('enable.saml20-idp', FALSE) === true) {
+	if ($config->getValue('enable.saml20-idp') === true) {
 		$results = array();	
 		$metalist = $metadata->getList('saml20-idp-hosted');
 		foreach ($metalist AS $entityid => $mentry) {
 			$results[$entityid] = SimpleSAML_Utilities::checkAssocArrayRules($mentry,
 				array('entityid', 'host', 'privatekey', 'certificate', 'auth'),
-				array('redirect.sign', 'redirect.validate', 'privatekey_pass', 'authority', 'userid.attribute', 'metadata.sign.enable', 'metadata.sign.privatekey', 'metadata.sign.privatekey_pass', 'metadata.sign.certificate', 'AttributeNameFormat', 'name', 'authproc', 'saml20.sign.assertion', 'saml20.sign.response', 'certData', 'OrganizationName', 'OrganizationDisplayName', 'OrganizationURL')
+				array('redirect.sign', 'redirect.validate', 'privatekey_pass', 'authority', 'attributemap', 'attributealter', 'userid.attribute', 'metadata.sign.enable', 'metadata.sign.privatekey', 'metadata.sign.privatekey_pass', 'metadata.sign.certificate', 'AttributeNameFormat', 'name')
 			);
 		}
 		$et->data['metadata.saml20-idp-hosted'] = $results;
@@ -64,7 +68,7 @@ try {
 		foreach ($metalist AS $entityid => $mentry) {
 			$results[$entityid] = SimpleSAML_Utilities::checkAssocArrayRules($mentry,
 				array('entityid', 'AssertionConsumerService'),
-				array('SingleLogoutService', 'NameIDFormat', 'SPNameQualifier', 'base64attributes', 'simplesaml.nameidattribute', 'simplesaml.attributes', 'attributes', 'name', 'description', 'redirect.sign', 'redirect.validate', 'certificate', 'ForceAuthn', 'sharedkey', 'assertion.encryption', 'userid.attribute', 'AttributeNameFormat', 'authproc', 'saml20.sign.assertion', 'saml20.sign.response', 'certData', 'OrganizationName', 'OrganizationDisplayName', 'OrganizationURL')
+				array('SingleLogoutService', 'NameIDFormat', 'SPNameQualifier', 'base64attributes', 'simplesaml.nameidattribute', 'attributemap', 'attributealter', 'simplesaml.attributes', 'attributes', 'name', 'description', 'redirect.sign', 'redirect.validate', 'certificate', 'ForceAuthn', 'sharedkey', 'assertion.encryption', 'userid.attribute', 'signresponse', 'AttributeNameFormat')
 			);
 		}
 		$et->data['metadata.saml20-sp-remote'] = $results;
@@ -74,14 +78,14 @@ try {
 
 
 
-	if ($config->getBoolean('enable.shib13-sp', FALSE) === true) {
+	if ($config->getValue('enable.shib13-sp') === true) {
 		$results = array();	
 
 		$metalist = $metadata->getList('shib13-sp-hosted');
 		foreach ($metalist AS $entityid => $mentry) {
 			$results[$entityid] = SimpleSAML_Utilities::checkAssocArrayRules($mentry,
 				array('entityid', 'host'),
-				array('NameIDFormat', 'ForceAuthn', 'metadata.sign.enable', 'metadata.sign.privatekey', 'metadata.sign.privatekey_pass', 'metadata.sign.certificate', 'idpdisco.url', 'authproc', 'OrganizationName', 'OrganizationDisplayName', 'OrganizationURL')
+				array('NameIDFormat', 'ForceAuthn', 'metadata.sign.enable', 'metadata.sign.privatekey', 'metadata.sign.privatekey_pass', 'metadata.sign.certificate', 'idpdisco.url')
 			);
 		}
 		$et->data['metadata.shib13-sp-hosted'] = $results;
@@ -91,20 +95,20 @@ try {
 		foreach ($metalist AS $entityid => $mentry) {
 			$results[$entityid] = SimpleSAML_Utilities::checkAssocArrayRules($mentry,
 				array('entityid', 'SingleSignOnService', 'certFingerprint'),
-				array('name', 'description', 'base64attributes', 'icon', 'authproc', 'OrganizationName', 'OrganizationDisplayName', 'OrganizationURL')
+				array('name', 'description', 'base64attributes', 'icon')
 			);
 		}
 		$et->data['metadata.shib13-idp-remote'] = $results;
 		
 	}
 	
-	if ($config->getBoolean('enable.shib13-idp', FALSE) === true) {
+	if ($config->getValue('enable.shib13-idp') === true) {
 		$results = array();	
 		$metalist = $metadata->getList('shib13-idp-hosted');
 		foreach ($metalist AS $entityid => $mentry) {
 			$results[$entityid] = SimpleSAML_Utilities::checkAssocArrayRules($mentry,
 				array('entityid', 'host', 'privatekey', 'certificate', 'auth'),
-				array('name', 'authority', 'privatekey_pass', 'scopedattributes', 'authproc', 'OrganizationName', 'OrganizationDisplayName', 'OrganizationURL')
+				array('name', 'authority', 'privatekey_pass', 'attributemap', 'attributealter', 'scopedattributes')
 			);
 		}
 		$et->data['metadata.shib13-idp-hosted'] = $results;
@@ -114,14 +118,14 @@ try {
 		foreach ($metalist AS $entityid => $mentry) {
 			$results[$entityid] = SimpleSAML_Utilities::checkAssocArrayRules($mentry,
 				array('entityid', 'AssertionConsumerService'),
-				array('base64attributes', 'audience', 'simplesaml.attributes', 'attributes', 'name', 'description', 'metadata.sign.enable', 'metadata.sign.privatekey', 'metadata.sign.privatekey_pass', 'metadata.sign.certificate', 'scopedattributes', 'authproc', 'OrganizationName', 'OrganizationDisplayName', 'OrganizationURL')
+				array('base64attributes', 'audience', 'attributemap', 'attributealter', 'simplesaml.attributes', 'attributes', 'name', 'description', 'metadata.sign.enable', 'metadata.sign.privatekey', 'metadata.sign.privatekey_pass', 'metadata.sign.certificate', 'scopedattributes')
 			);
 		}
 		$et->data['metadata.shib13-sp-remote'] = $results;
 		
 	}
 
-	if ($config->getBoolean('enable.wsfed-sp', FALSE) === true) {
+	if ($config->getValue('enable.wsfed-sp') === true) {
 		$results = array();
 		$metalist = $metadata->getList('wsfed-sp-hosted');
 		foreach ($metalist AS $entityid => $mentry) {

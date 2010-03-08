@@ -8,22 +8,30 @@
 $config = array (
 
 	/**
+	 * This option configures the base directory for this simpleSAMLphp
+	 * installation. Under most circumstances this option is optional,
+	 * and can be left unset.
+	 *
+	 * Example:
+	 *  'basedir' => '/var/simplesamlphp/',
+	 */
+	'basedir' => NULL,
+
+	/**
 	 * Setup the following parameters to match the directory of your installation.
 	 * See the user manual for more details.
 	 */
 	'baseurlpath'           => 'simplesaml/',
+	'templatedir'           => 'templates/',
+	'metadatadir'           => 'metadata/',
+	'attributenamemapdir'   => 'attributemap/',
 	'certdir'               => 'cert/',
+	'dictionarydir'         => 'dictionaries/',
 	'loggingdir'            => 'log/',
-	'datadir'               => 'data/',
-
-	/*
-	 * A directory where simpleSAMLphp can save temporary files.
-	 *
-	 * SimpleSAMLphp will attempt to create this directory if it doesn't exist.
-	 */
-	'tempdir'               => '/tmp/simplesaml',
+	'libextinc'				=> 'libextinc/',
 	
-
+	'version'				=>	'trunk',
+	
 	/**
 	 * If you set the debug parameter to true, all SAML messages will be visible in the
 	 * browser, and require the user to click the submit button. If debug is set to false,
@@ -64,16 +72,7 @@ $config = array (
 	 */
 	'technicalcontact_name'     => 'Administrator',
 	'technicalcontact_email'    => 'na@example.org',
-
-	/*
-	 * The timezone of the server. This option should be set to the timezone you want
-	 * simpleSAMLphp to report the time in. The default is to guess the timezone based
-	 * on your system timezone.
-	 *
-	 * See this page for a list of valid timezones: http://php.net/manual/en/timezones.php
-	 */
-	'timezone' => NULL,
-
+	
 	/*
 	 * Logging.
 	 * 
@@ -91,6 +90,7 @@ $config = array (
 	 */
 	'logging.level'         => LOG_NOTICE,
 	'logging.handler'       => 'syslog',
+	'logging.processname'   => 'simpleSAMLphp',
 
 	/*
 	 * Choose which facility should be used when logging with syslog.
@@ -105,15 +105,10 @@ $config = array (
 	 */
 	'logging.facility' => defined('LOG_LOCAL5') ? constant('LOG_LOCAL5') : LOG_USER,
 
-	/*
-	 * The process name that should be used when logging to syslog.
-	 * The value is also written out by the other logging handlers.
-	 */
-	'logging.processname' => 'simplesamlphp',
-
 	/* Logging: file - Logfilename in the loggingdir from above.
 	 */
 	'logging.logfile'		=> 'simplesamlphp.log',
+	'logging.processname'	=> 'simplesamlphp',
 	
 	
 
@@ -124,10 +119,12 @@ $config = array (
 	 * one of the functionalities below, but in some cases you could run multiple functionalities.
 	 * In example when you are setting up a federation bridge.
 	 */
+	'enable.saml20-sp'		=> true,
 	'enable.saml20-idp'		=> false,
+	'enable.shib13-sp'		=> false,
 	'enable.shib13-idp'		=> false,
-	'enable.adfs-idp'		=> false,
 	'enable.wsfed-sp'		=> false,
+	'enable.openid-provider'=> false,
 	'enable.authmemcookie' => false,
 
 	/* 
@@ -144,16 +141,6 @@ $config = array (
 	 */
 	'session.datastore.timeout' => (4*60*60), // 4 hours
 	
-
-	/*
-	 * Set the secure flag in the cookie.
-	 *
-	 * Set this to TRUE if the user only accesses your service
-	 * through https. If the user can access the service through
-	 * both http and https, this must be set to FALSE.
-	 */
-	'session.cookie.secure' => FALSE,
-
 	/*
 	 * Options to override the default settings for php sessions.
 	 */
@@ -164,19 +151,39 @@ $config = array (
 	/*
 	 * Languages available and what language is default
 	 */
-	'language.available'	=> array('en', 'no', 'nn', 'se', 'fi', 'da', 'sv', 'de', 'es', 'fr', 'nl', 'lb', 'hr', 'hu', 'pl', 'sl', 'pt', 'pt-BR', 'tr'),
+	'language.available'	=> array('en', 'no', 'nn', 'se', 'fi', 'da', 'sv', 'de', 'es', 'fr', 'nl', 'lb', 'hr', 'hu', 'sl', 'pt', 'pt-BR'),
 	'language.default'		=> 'en',
 	
 	/*
-	 * Which theme directory should be used?
+	 * Which theme directory should be used? The base is fallback (leave it to default).
 	 */
 	'theme.use' 		=> 'default',
+	'theme.base' 		=> 'default',
 
 	
 	/*
-	 * Default IdP for WS-Fed.
+	 * Default IdPs. If you do not enter an idpentityid in the SSO initialization endpoints,
+	 * the default IdP configured here will be used.
+	 *
+	 * To enable the SAML 2.0 IdP Discovery service for a SAML 2.0 SP, you need to set the
+	 * default-saml20-idp to be null, like this:
+	 *
+	 * 		'default-saml20-idp' => NULL,
+	 *
 	 */
+	'default-saml20-idp' => NULL,
+	'default-shib13-idp' => NULL,
 	'default-wsfed-idp'	=> 'urn:federation:pingfederate:localhost',
+
+	/*
+	 * Default IdP discovery service urls.
+	 * This option sets the default IdP discovery service URLs for the SPs in this installation. These
+	 * URLs can be overridden on a per SP basis by setting this option in the metadata for the SP.
+	 *
+	 * By default simpleSAMLphp will use its builtin IdP discovery service.
+	 */
+	'idpdisco.url.shib13' => NULL,
+	'idpdisco.url.saml20' => NULL,
 
 	/*
 	 * Whether the discovery service should allow the user to save his choice of IdP.
@@ -200,16 +207,17 @@ $config = array (
 	 * Options: [links,dropdown]
 	 * 
 	 */
-	'idpdisco.layout' => 'dropdown',
+	'idpdisco.layout' => 'links',
 
 	/*
-	 * Whether simpleSAMLphp should sign the response or the assertion in SAML 1.1 authentication
+	 * Whether simpleSAMLphp should sign the response or the assertion in SAML 2.0 authentication
 	 * responses.
 	 *
 	 * The default is to sign the assertion element, but that can be overridden by setting this
 	 * option to TRUE. It can also be overridden on a pr. SP basis by adding an option with the
 	 * same name to the metadata of the SP.
 	 */
+	'saml20.signresponse' => FALSE,
 	'shib13.signresponse' => TRUE,
 	
 	
@@ -347,8 +355,33 @@ $config = array (
 	 */
 	'metadata.sources' => array(
 		array('type' => 'flatfile'),
-	),
+		),
 
+
+
+	
+	/*
+	 * Radius authentication. This is only relevant if you use the Radius authentication plugin.
+	 * user attributes are expected to be stored in a Vendor-Specific RADIUS string attribute and have
+	 * the form aai-attribute=value
+	 * vendor and vendor-attr below indicate in which RADIUS attribute the AAI attributes are in.
+	 * multiple occurences of that RADIUS attribute are supported
+	 */
+	'auth.radius.hostname'        => 'radius.example.org',
+	'auth.radius.port'            => '1812',
+	'auth.radius.secret'          => 'topsecret',
+	'auth.radius.URNForUsername'  => 'urn:mace:dir:attribute-def:eduPersonPrincipalName',
+	'auth.radius.vendor'          => '23735',
+	'auth.radius.vendor-attr'     => '4',
+
+	
+	/*
+	 * These parameters are only relevant if you setup an OpenID Provider.
+	 */
+	'openid.userid_attributename' => 'eduPersonPrincipalName',
+	'openid.delegation_prefix'    => 'https://openid.feide.no/',
+	'openid.filestore'            => '/tmp/openidstore',
+	
 
 	/*
 	 * This configuration option allows you to select which session handler

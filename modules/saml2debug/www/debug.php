@@ -20,7 +20,7 @@ function getValue($raw) {
 	if (array_key_exists('LogoutRequest', $arr)) return $arr['LogoutRequest'];
 	if (array_key_exists('LogoutResponse', $arr)) return $arr['LogoutResponse'];
 
-	return rawurldecode(stripslashes($val));
+	return urldecode(stripslashes($val));	
 }
 
 function decode($raw) {
@@ -41,7 +41,7 @@ function encode($message) {
 	if ($_REQUEST['binding'] === 'redirect') {
 		return urlencode(base64_encode(gzdeflate(stripslashes($message))));
 	} else {
-		return base64_encode(stripslashes($message));
+		return urlencode(base64_encode(stripslashes($message)));
 	}
 }
 

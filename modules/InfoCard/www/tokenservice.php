@@ -45,7 +45,6 @@ function decryptMcrypt($data,$key) {
 
 Header('Content-Type: application/soap+xml;charset=utf-8');
 
-$config = SimpleSAML_Configuration::getInstance();
 SimpleSAML_Logger::debug('Tokenservice');
 
 $token = new DOMDocument();
@@ -57,7 +56,7 @@ $cardId  =  $doc->getElementsByTagname('CardId')->item(0)->nodeValue;
 $authenticated = false;
 
 
-$autoconfig = $config->copyFromBase('logininfocard', 'config-login-infocard.php');
+$autoconfig = SimpleSAML_Configuration::getConfig('config-login-infocard.php');
 $ICconfig['UserCredential'] = $autoconfig->getValue('UserCredential');
 $debugDir = $autoconfig->getValue('debugDir');
 
@@ -119,12 +118,12 @@ if ($authenticated){
 }
 
 
-Header('Content-length: '.strlen($response)+1);
+Header('Content-length: '.strlen($buf)+1);
 print($response);
 
 //LOG
 if ($debugDir!=null){
-	$handle=fopen($debugDir.'/'.$messageid.'.log','w');
+	$handle=fopen($debugDir.'/'.$messageid.".log","w");
 	fwrite($handle,"  ------ InfoCard simpleSAMLphp Module LOG ------\n\n");
 	fwrite($handle,"-- TIME: ".gmdate('Y-m-d').' '.gmdate('H:i:s')."\n");
 	fwrite($handle,"-- MESSAGE ID: ".$messageid."\n\n\n");

@@ -361,7 +361,7 @@ class Auth_Yadis_Manager {
  *
  * High-level usage pattern is to call .getNextService(discover) in
  * order to find the next available service for this user for this
- * session. Once a request completes, call .cleanup() to clean up the
+ * session. Once a request completes, call .finish() to clean up the
  * session state.
  *
  * @package OpenID
@@ -410,6 +410,7 @@ class Auth_Yadis_Discovery {
         $manager = $this->getManager();
         if (!$manager || (!$manager->services)) {
             $this->destroyManager();
+            $http_response = array();
 
             list($yadis_url, $services) = call_user_func($discover_cb,
                                                          $this->url,
@@ -434,16 +435,13 @@ class Auth_Yadis_Discovery {
      * Clean up Yadis-related services in the session and return the
      * most-recently-attempted service from the manager, if one
      * exists.
-     *
-     * @param $force True if the manager should be deleted regardless
-     * of whether it's a manager for $this->url.
      */
-    function cleanup($force=false)
+    function cleanup()
     {
-        $manager = $this->getManager($force);
+        $manager = $this->getManager();
         if ($manager) {
             $service = $manager->current();
-            $this->destroyManager($force);
+            $this->destroyManager();
         } else {
             $service = null;
         }
@@ -462,11 +460,8 @@ class Auth_Yadis_Discovery {
 
     /**
      * @access private
-     *
-     * @param $force True if the manager should be returned regardless
-     * of whether it's a manager for $this->url.
      */
-    function &getManager($force=false)
+    function &getManager()
     {
         // Extract the YadisServiceManager for this object's URL and
         // suffix from the session.
@@ -479,7 +474,7 @@ class Auth_Yadis_Discovery {
             $manager = $loader->fromSession(unserialize($manager_str));
         }
 
-        if ($manager && ($manager->forURL($this->url) || $force)) {
+        if ($manager && $manager->forURL($this->url)) {
             return $manager;
         } else {
             $unused = null;
@@ -513,13 +508,10 @@ class Auth_Yadis_Discovery {
 
     /**
      * @access private
-     *
-     * @param $force True if the manager should be deleted regardless
-     * of whether it's a manager for $this->url.
      */
-    function destroyManager($force=false)
+    function destroyManager()
     {
-        if ($this->getManager($force) !== null) {
+        if ($this->getManager() !== null) {
             $key = $this->getSessionKey();
             $this->session->del($key);
         }

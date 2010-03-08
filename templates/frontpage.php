@@ -1,10 +1,15 @@
 <?php 
+#	$this->data['icon'] = 'compass_l.png';
 
-
+	
+// $this->data['head']  = '<script type="text/javascript" src="/' . $this->data['baseurlpath'] . 'resources/jquery.js"></script>';
+// $this->data['head'] .= '<script type="text/javascript" src="/' . $this->data['baseurlpath'] . 'resources/jquery-ui.js"></script>';
+// $this->data['head'] .= '<link rel="stylesheet" media="screen" type="text/css" href="/' . $this->data['baseurlpath'] . 'resources/uitheme/jquery-ui-themeroller.css" />';
 
 $this->data['jquery'] = array('version' => '1.6', 'core' => TRUE, 'ui' => TRUE, 'css' => TRUE);
 
 $this->data['head'] = '<script type="text/javascript">
+
 $(document).ready(function() {
 	$("#tabdiv").tabs();
 });
@@ -41,8 +46,8 @@ if ($this->data['isadmin']) {
 		<table>
 		
 		<?php
-		$icon_enabled  = '<img src="/' . $this->data['baseurlpath'] . 'resources/icons/silk/accept.png" alt="enabled" />';
-		$icon_disabled = '<img src="/' . $this->data['baseurlpath'] . 'resources/icons/silk/delete.png" alt="disabled" />';
+		$icon_enabled  = '<img src="/' . $this->data['baseurlpath'] . 'resources/icons/accept.png" alt="enabled" />';
+		$icon_disabled = '<img src="/' . $this->data['baseurlpath'] . 'resources/icons/delete.png" alt="disabled" />';
 		?>
 		
 			<tr class="<?php echo $this->data['enablematrix']['saml20-sp'] ? 'enabled' : 'disabled'; ?>"><td>SAML 2.0 SP</td>
@@ -127,8 +132,8 @@ if ($this->data['isadmin']) {
 		echo '<div class="enablebox"><table>';
 		
 		
-		$icon_enabled  = '<img src="/' . $this->data['baseurlpath'] . 'resources/icons/silk/accept.png" alt="enabled" />';
-		$icon_disabled = '<img src="/' . $this->data['baseurlpath'] . 'resources/icons/silk/delete.png" alt="disabled" />';
+		$icon_enabled  = '<img src="/' . $this->data['baseurlpath'] . 'resources/icons/accept.png" alt="enabled" />';
+		$icon_disabled = '<img src="/' . $this->data['baseurlpath'] . 'resources/icons/delete.png" alt="disabled" />';
 		
 		
 		foreach ($this->data['funcmatrix'] AS $func) {
@@ -163,7 +168,6 @@ function mtype($set) {
 	}
 }
 
-$now = time();
 echo '<dl>';
 if (is_array($this->data['metaentries']['hosted']) && count($this->data['metaentries']['hosted']) > 0)
 foreach ($this->data['metaentries']['hosted'] AS $hm) {
@@ -176,8 +180,6 @@ foreach ($this->data['metaentries']['hosted'] AS $hm) {
 		echo '<br /><strong>' . $this->getTranslation(SimpleSAML_Utilities::arrayize($hm['name'], 'en')) . '</strong>';
 	if (array_key_exists('descr', $hm))
 		echo '<br /><strong>' . $this->getTranslation(SimpleSAML_Utilities::arrayize($hm['descr'], 'en')) . '</strong>';
-
-	
 	
 	echo '<br  />[ <a href="' . $hm['metadata-url'] . '">' . $this->t('show_metadata') . '</a> ]';
 	
@@ -196,14 +198,6 @@ foreach($this->data['metaentries']['remote'] AS $setkey => $set) {
 			echo $this->getTranslation(SimpleSAML_Utilities::arrayize($entry['name'], 'en'));
 		} else {
 			echo $entry['entityid'];
-		}
-		
-		if (array_key_exists('expire', $entry)) {
-			if ($entry['expire'] < $now) {
-				echo('<span style="color: #500; font-weight: bold"> (expired ' . number_format(($now - $entry['expire'])/3600, 1) . ' hours ago)</span>');
-			} else {
-				echo(' (expires in ' . number_format(($entry['expire'] - $now)/3600, 1) . ' hours)');
-			}
 		}
 		echo '</li>';
 	}

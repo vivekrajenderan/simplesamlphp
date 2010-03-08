@@ -10,21 +10,6 @@
  */
 
 class SimpleSAML_Logger_LoggingHandlerFile implements SimpleSAML_Logger_LoggingHandler {
-    
-	/**
-	 * This array contains the mappings from syslog loglevel to names. Copied
-	 * more or less directly from SimpleSAML_Logger_LoggingHandlerErrorLog.
-	 */
-	private static $levelNames = array(
-		LOG_EMERG => 'EMERGENCY',
-		LOG_ALERT => 'ALERT',
-		LOG_CRIT => 'CRITICAL',
-		LOG_ERR => 'ERROR',
-		LOG_WARNING => 'WARNING',
-		LOG_NOTICE => 'NOTICE',
-		LOG_INFO => 'INFO',
-		LOG_DEBUG => 'DEBUG',
-	);
 
     private $logFile = null;
     private $processname = null;
@@ -34,8 +19,8 @@ class SimpleSAML_Logger_LoggingHandlerFile implements SimpleSAML_Logger_LoggingH
         assert($config instanceof SimpleSAML_Configuration);
 
         /* Get the metadata handler option from the configuration. */
-        $this->logFile = $config->getPathValue('loggingdir', 'log/').$config->getString('logging.logfile', 'simplesamlphp.log');
-		$this->processname = $config->getString('logging.processname','simpleSAMLphp');
+        $this->logFile = $config->getPathValue('loggingdir').$config->getValue('logging.logfile');
+		$this->processname = $config->getValue('logging.processname','simpleSAMLphp');
 		
         if (@file_exists($this->logFile)) {
             if (!@is_writeable($this->logFile)) throw new Exception("Could not write to logfile: ".$this->logFile);
@@ -46,17 +31,10 @@ class SimpleSAML_Logger_LoggingHandlerFile implements SimpleSAML_Logger_LoggingH
         }
     }
 
-    function log_internal($level, $string) {
+    function log_internal($level,$string) {
         if ($this->logFile != null) {
-            
-            // Set human-readable log level. Copied from SimpleSAML_Logger_LoggingHandlerErrorLog.
-        	if(array_key_exists($level, self::$levelNames))
-			    $levelName = self::$levelNames[$level];
-		    else
-			    $levelName = sprintf('UNKNOWN%d', $level);
-            
-            $line = sprintf("%s %s %s %s\n", strftime("%b %d %H:%M:%S"), $this->processname, $levelName, $string);
-            file_put_contents($this->logFile, $line, FILE_APPEND);
+            $line = sprintf("%s %s %d %s\n",strftime("%b %d %H:%M:%S"),$this->processname,$level,$string);
+            file_put_contents($this->logFile,$line,FILE_APPEND);
         }
     }
 }

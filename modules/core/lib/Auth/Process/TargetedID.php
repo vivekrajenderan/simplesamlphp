@@ -40,14 +40,6 @@ class sspmod_core_Auth_Process_TargetedID extends SimpleSAML_Auth_ProcessingFilt
 
 
 	/**
-	 * Whether the attribute should be generated as a NameID value, or as a simple string.
-	 *
-	 * @var boolean
-	 */
-	private $generateNameId = FALSE;
-
-
-	/**
 	 * Initialize this filter.
 	 *
 	 * @param array $config  Configuration information about this filter.
@@ -62,13 +54,6 @@ class sspmod_core_Auth_Process_TargetedID extends SimpleSAML_Auth_ProcessingFilt
 			$this->attribute = $config['attributename'];
 			if (!is_string($this->attribute)) {
 				throw new Exception('Invalid attribute name given to core:TargetedID filter.');
-			}
-		}
-
-		if (array_key_exists('nameId', $config)) {
-			$this->generateNameId = $config['nameId'];
-			if (!is_bool($this->generateNameId)) {
-				throw new Exception('Invalid value of \'nameId\'-option to core:TargetedID filter.');
 			}
 		}
 	}
@@ -97,7 +82,7 @@ class sspmod_core_Auth_Process_TargetedID extends SimpleSAML_Auth_ProcessingFilt
 					'\', which is needed to generate the targeted ID.');
 			}
 
-			$userID = $state['Attributes'][$this->attribute][0];
+			$userID = $state['Attributes'][$this->attribute];
 		}
 
 
@@ -121,31 +106,7 @@ class sspmod_core_Auth_Process_TargetedID extends SimpleSAML_Auth_ProcessingFilt
 		$uidData .= strlen($userID) . ':' . $userID;
 		$uidData .= $secretSalt;
 
-		$uid = hash('sha1', $uidData);
-
-		if ($this->generateNameId) {
-			/* Convert the targeted ID to a SAML 2.0 name identifier element. */
-			$nameId = array(
-				'Format' => SAML2_Const::NAMEID_PERSISTENT,
-				'Value' => $uid,
-			);
-
-			if (isset($state['Source']['entityid'])) {
-				$nameId['NameQualifier'] = $state['Source']['entityid'];
-			}
-			if (isset($state['Destination']['entityid'])) {
-				$nameId['SPNameQualifier'] = $state['Destination']['entityid'];
-			}
-
-			$doc = new DOMDocument();
-			$root = $doc->createElement('root');
-			$doc->appendChild($root);
-
-			SAML2_Utils::addNameId($root, $nameId);
-			$uid = $doc->saveXML($root->firstChild);
-		}
-
-		$state['Attributes']['eduPersonTargetedID'] = array($uid);
+		$state['Attributes']['eduPersonTargetedID'] = array(hash('sha1', $uidData));
 	}
 
 
