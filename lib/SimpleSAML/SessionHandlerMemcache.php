@@ -14,6 +14,14 @@
 class SimpleSAML_SessionHandlerMemcache
 extends SimpleSAML_SessionHandlerCookie {
 
+
+	/* This variable contains a reference to the MemcacheStore object
+	 * which contains the session data.
+	 */
+	private $store = NULL;
+
+
+
 	/* Initialize the memcache session handling. This constructor is
 	 * protected because it should only be called from
 	 * SimpleSAML_SessionHandler::createSessionHandler(...).
@@ -24,50 +32,39 @@ extends SimpleSAML_SessionHandlerCookie {
 		 * id.
 		 */
 		parent::__construct();
+
+		/* Load the session object if it already exists. */
+		$this->store = SimpleSAML_MemcacheStore::find($this->session_id);
+
+		if($this->store === NULL) {
+			/* We didn't find the session. This may be because the
+			 * session has expired, or it could be because this is
+			 * a new session. In any case we create a new session.
+			 */
+			$this->store = new SimpleSAML_MemcacheStore(
+				$this->session_id);
+		}
 	}
 
 
-	/**
-	 * Save the current session to memcache.
+	/* This function is used to store data in this session object.
 	 *
-	 * @param SimpleSAML_Session $session  The session object we should save.
+	 * See the information in SimpleSAML_SessionHandler::set(...) for
+	 * more information.
 	 */
-	public function saveSession(SimpleSAML_Session $session) {
-
-		SimpleSAML_Memcache::set('simpleSAMLphp.session.' . $this->session_id, $session);
+	public function set($key, $value) {
+		$this->store->set($key, $value);
 	}
 
 
-	/**
-	 * Load the session from memcache.
+	/* This function retrieves a value from this session object.
 	 *
-	 * @return SimpleSAML_Session|NULL  The session object, or NULL if it doesn't exist.
+	 * See the information in SimpleSAML_SessionHandler::get(...) for
+	 * more information.
 	 */
-	public function loadSession() {
-
-		$session = SimpleSAML_Memcache::get('simpleSAMLphp.session.' . $this->session_id);
-		if ($session !== NULL) {
-			assert('$session instanceof SimpleSAML_Session');
-			return $session;
-		}
-
-		/* For backwards compatibility, check the MemcacheStore object. */
-		$store = SimpleSAML_MemcacheStore::find($this->session_id);
-		if ($store === NULL) {
-			return NULL;
-		}
-
-		$session = $store->get('SimpleSAMLphp_SESSION');
-		if ($session === NULL) {
-			return NULL;
-		}
-
-		assert('is_string($session)');
-
-		$session = unserialize($session);
-		assert('$session instanceof SimpleSAML_Session');
-
-		return $session;
+	public function get($key) {
+		return $this->store->get($key);
 	}
-
 }
+
+?>

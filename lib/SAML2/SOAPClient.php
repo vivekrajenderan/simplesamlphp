@@ -14,29 +14,28 @@ class SAML2_SOAPClient {
 	/**
 	 * This function sends the SOAP message to the service location and returns SOAP response
 	 *
-	 * @param SAML2_Message $m  The request that should be sent.
-	 * @param SimpleSAML_Configuration $srcMetadata  The metadata of the issuer of the message.
-	 * @return SAML2_Message  The response we received.
+	 * @param $ar SAML2_ArtifactResolve object.
+	 * @return $soapresponse string
 	 */
-	public function send(SAML2_Message $msg, SimpleSAML_Configuration $srcMetadata) {
+	public function send(SAML2_ArtifactResolve $ar, SimpleSAML_Configuration $spMetadata) {
 
-		$issuer = $msg->getIssuer();
+		$issuer = $ar->getIssuer();
 
 		$options = array(
 			'uri' => $issuer,
-			'location' => $msg->getDestination(),
+			'location' => $ar->getDestination(),
 		);
 
 		// Determine if we are going to do a MutualSSL connection between the IdP and SP  - Shoaib
-		if ($srcMetadata->hasValue('saml.SOAPClient.certificate')) {
-			$options['local_cert'] = SimpleSAML_Utilities::resolveCert($srcMetadata->getString('saml.SOAPClient.certificate'));
-			if ($srcMetadata->hasValue('saml.SOAPClient.privatekey_pass')) {
-				$options['passphrase'] = $srcMetadata->getString('saml.SOAPClient.privatekey_pass');
+		if ($spMetadata->hasValue('saml.SOAPClient.certificate')) {
+			$options['local_cert'] = SimpleSAML_Utilities::resolveCert($spMetadata->getString('saml.SOAPClient.certificate'));
+			if ($spMetadata->hasValue('saml.SOAPClient.privatekey_pass')) {
+				$options['passphrase'] = $spMetadata->getString('saml.SOAPClient.privatekey_pass');
 			}
 		} else {
 			/* Use the SP certificate and privatekey if it is configured. */
-			$privateKey = SimpleSAML_Utilities::loadPrivateKey($srcMetadata);
-			$publicKey = SimpleSAML_Utilities::loadPublicKey($srcMetadata);
+			$privateKey = SimpleSAML_Utilities::loadPrivateKey($spMetadata);
+			$publicKey = SimpleSAML_Utilities::loadPublicKey($spMetadata);
 			if ($privateKey !== NULL && $publicKey !== NULL && isset($publicKey['PEM'])) {
 				$keyCertData = $privateKey['PEM'] . $publicKey['PEM'];
 				$file = SimpleSAML_Utilities::getTempDir() . '/' . sha1($keyCertData) . '.pem';
@@ -53,12 +52,12 @@ class SAML2_SOAPClient {
 		$x = new SoapClient(NULL, $options);
 
 		// Add soap-envelopes
-		$request = $msg->toSignedXML();
+		$request = $ar->toSignedXML();
 		$request = self::START_SOAP_ENVELOPE . $request->ownerDocument->saveXML($request) . self::END_SOAP_ENVELOPE;
 
 		$action = 'http://www.oasis-open.org/committees/security';
 		$version = '1.1';
-		$destination = $msg->getDestination();
+		$destination = $ar->getDestination();
 
 
 		/* Perform SOAP Request over HTTP */
@@ -81,7 +80,7 @@ class SAML2_SOAPClient {
 		$samlresponse = SAML2_Message::fromXML($samlresponse[0]);
 
 
-		SimpleSAML_Logger::debug("Valid ArtifactResponse received from IdP");
+		simpleSAML_Logger::debug("Valid ArtifactResponse received from IdP");
 
 		return $samlresponse;
 

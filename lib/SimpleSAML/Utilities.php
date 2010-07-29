@@ -50,6 +50,17 @@ class SimpleSAML_Utilities {
 		return $currenthost;# . self::getFirstPathElement() ;
 	}
 
+	/**
+	 * Will return https
+	 */
+	public static function getSelfProtocol() {
+		$s = empty($_SERVER["HTTPS"]) ? ''
+			: ($_SERVER["HTTPS"] == "on") ? 's'
+			: '';
+		if ( empty($_SERVER["HTTPS"]) && $_SERVER["SERVER_PORT"] == 443) $s = 's';
+		$protocol = self::strleft(strtolower($_SERVER["SERVER_PROTOCOL"]), "/").$s;
+		return $protocol;
+	}
 
 	/**
 	 * Will return https://sp.example.org
@@ -57,12 +68,8 @@ class SimpleSAML_Utilities {
 	public static function selfURLhost() {
 	
 		$currenthost = self::getSelfHost();
-
-		if (SimpleSAML_Utilities::isHTTPS()) {
-			$protocol = 'https';
-		} else {
-			$protocol = 'http';
-		}
+	
+		$protocol = self::getSelfProtocol();
 		
 		$portnumber = $_SERVER["SERVER_PORT"];
 		$port = ':' . $portnumber;
@@ -104,15 +111,21 @@ class SimpleSAML_Utilities {
 	public static function selfURLNoQuery() {
 	
 		$selfURLhost = self::selfURLhost();
-		$selfURLhost .= $_SERVER['SCRIPT_NAME'];
-		if (isset($_SERVER['PATH_INFO'])) {
-			$selfURLhost .= $_SERVER['PATH_INFO'];
-		}
-		return $selfURLhost;
+		return $selfURLhost . self::getScriptName();
 	
 	}
-
-
+	
+	public static function getScriptName() {
+		$scriptname = $_SERVER['SCRIPT_NAME'];
+		if (preg_match('|^/.*?(/.*)$|', $_SERVER['SCRIPT_NAME'], $matches)) {
+			#$scriptname = $matches[1];
+		}
+		if (array_key_exists('PATH_INFO', $_SERVER)) $scriptname .= $_SERVER['PATH_INFO'];
+		
+		return $scriptname;
+	}
+	
+	
 	/**
 	 * Will return sp.example.org/foo
 	 */
@@ -140,16 +153,21 @@ class SimpleSAML_Utilities {
 
 	public static function selfURL() {
 		$selfURLhost = self::selfURLhost();
+		return $selfURLhost . self::getRequestURI();	
+	}
+	
+	public static function getRequestURI() {
+		
+		$requesturi = $_SERVER['REQUEST_URI'];
 
-		$requestURI = $_SERVER['REQUEST_URI'];
-		if ($requestURI[0] !== '/') {
+		if ($requesturi[0] !== '/') {
 			/* We probably have an url on the form: http://server/. */
-			if (preg_match('#^https?://[^/]*(/.*)#i', $requestURI, $matches)) {
-				$requestURI = $matches[1];
+			if (preg_match('#^https?://[^/]*(/.*)#i', $requesturi, $matches)) {
+				$requesturi = $matches[1];
 			}
 		}
 
-		return $selfURLhost . $requestURI;
+		return $requesturi;
 	}
 
 
@@ -222,6 +240,10 @@ class SimpleSAML_Utilities {
 	}
 
 
+	public static function strleft($s1, $s2) {
+		return substr($s1, 0, strpos($s1, $s2));
+	}
+	
 	public static function checkDateConditions($start=NULL, $end=NULL) {
 		$currentTime = time();
 	
@@ -240,8 +262,12 @@ class SimpleSAML_Utilities {
 		}
 		return TRUE;
 	}
-
-
+	
+	public static function cert_fingerprint($pem) {
+		$x509data = base64_decode( $pem );
+		return strtolower( sha1( $x509data ) );
+	}
+	
 	public static function generateID() {
 		return '_' . self::stringToHex(self::generateRandomBytes(21));
 	}
@@ -259,7 +285,54 @@ class SimpleSAML_Utilities {
 		}
 		return gmdate('Y-m-d\TH:i:s\Z', $instant);
 	}
+	
+	public static function generateTrackID() {		
+		$uniqueid = substr(md5(uniqid(rand(), true)), 0, 10);
+		return $uniqueid;
+	}
+	
+	public static function array_values_equals($array, $equalsvalue) {
+		$foundkeys = array();
+		foreach ($array AS $key => $value) {
+			if ($value === $equalsvalue) $foundkeys[] = $key;
+		}
+		return $foundkeys;
+	}
+	
+	public static function checkAssocArrayRules($target, $required, $optional = array()) {
 
+		$results = array(
+			'required.found' 		=> array(),
+			'required.notfound'		=> array(),
+			'optional.found'		=> array(),
+			'optional.notfound'		=> array(),
+			'leftovers'				=> array()
+		);
+		
+		foreach ($target AS $key => $value) {
+			if(in_array($key, $required)) {
+				$results['required.found'][$key] = $value;
+			} elseif (in_array($key, $optional)) {
+				$results['optional.found'][$key] = $value;
+			} else {
+				$results['leftovers'][$key] = $value;
+			}
+		}
+		
+		foreach ($required AS $key) {
+			if (!array_key_exists($key, $target)) {
+				$results['required.notfound'][] = $key;
+			}
+		}
+		
+		foreach ($optional AS $key) {
+			if (!array_key_exists($key, $target)) {
+				$results['optional.notfound'][] = $key;
+			}
+		}
+		return $results;
+	}
+	
 
 	/**
 	 * Build a backtrace.
@@ -545,7 +618,7 @@ class SimpleSAML_Utilities {
 		/* Check if there is a valid technical contact email address. */
 		if($config->getString('technicalcontact_email', 'na@example.org') !== 'na@example.org') {
 			/* Enable error reporting. */
-			$baseurl = SimpleSAML_Utilities::getBaseURL();
+			$baseurl = SimpleSAML_Utilities::selfURLhost() . '/' . $config->getBaseURL();
 			$t->data['errorReportAddress'] = $baseurl . 'errorreport.php';
 		}
 
@@ -1020,6 +1093,67 @@ class SimpleSAML_Utilities {
 	}
 
 
+	/**
+	 * This function is used to generate a non-revesible unique identifier for a user.
+	 * The identifier should be persistent (unchanging) for a given SP-IdP federation.
+	 * The identifier can be shared between several different SPs connected to the same IdP, or it
+	 * can be unique for each SP.
+	 *
+	 * @param $idpEntityId  The entity id of the IdP.
+	 * @param $spEntityId   The entity id of the SP.
+	 * @param $attributes   The attributes of the user.
+	 * @param $idpset       Allows to select another metadata set. (to support both saml2 or shib13)
+	 * @param $sppset       Allows to select another metadata set. (to support both saml2 or shib13)
+	 * @return A non-reversible unique identifier for the user.
+	 */
+	public static function generateUserIdentifier($idpEntityId, $spEntityId, array &$state, $idpset = 'saml20-idp-hosted', $spset = 'saml20-sp-remote') {
+	
+		$metadataHandler = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
+		$idpMetadata = $metadataHandler->getMetaData($idpEntityId, $idpset);
+		$spMetadata = $metadataHandler->getMetaData($spEntityId, $spset);
+
+		if (isset($state['UserID'])) {
+			$attributeValue = $state['UserID'];
+		} else {
+			if(array_key_exists('userid.attribute', $spMetadata)) {
+				$attributeName = $spMetadata['userid.attribute'];
+			} elseif(array_key_exists('userid.attribute', $idpMetadata)) {
+				$attributeName = $idpMetadata['userid.attribute'];
+			} else {
+				$attributeName = 'eduPersonPrincipalName';
+			}
+
+			if(!array_key_exists($attributeName, $attributes)) {
+				throw new Exception('Missing attribute "' . $attributeName . '" for user. Cannot' .
+					' generate user id.');
+			}
+
+			$attributeValue = $attributes[$attributeName];
+			if(count($attributeValue) !== 1) {
+				throw new Exception('Attribute "' . $attributeName . '" for user did not contain exactly' .
+					' one value. Cannot generate user id.');
+			}
+
+			$attributeValue = $attributeValue[0];
+			if(empty($attributeValue)) {
+				throw new Exception('Attribute "' . $attributeName . '" for user was empty. Cannot' .
+					' generate user id.');
+			}
+		}
+
+		$secretSalt = self::getSecretSalt();
+
+		$uidData = 'uidhashbase' . $secretSalt;
+		$uidData .= strlen($idpEntityId) . ':' . $idpEntityId;
+		$uidData .= strlen($spEntityId) . ':' . $spEntityId;
+		$uidData .= strlen($attributeValue) . ':' . $attributeValue;
+		$uidData .= $secretSalt;
+
+		$userid = hash('sha1', $uidData);
+
+		return $userid;
+	}
+
 	public static function generateRandomBytesMTrand($length) {
 	
 		/* Use mt_rand to generate $length random bytes. */
@@ -1156,7 +1290,8 @@ class SimpleSAML_Utilities {
 	 */
 	public static function resolveURL($url, $base = NULL) {
 		if($base === NULL) {
-			$base = SimpleSAML_Utilities::getBaseURL();
+			$config = SimpleSAML_Configuration::getInstance();
+			$base = self::selfURLhost() . '/' . $config->getBaseURL();
 		}
 
 
@@ -2046,6 +2181,40 @@ class SimpleSAML_Utilities {
 		 * return the value of it.
 		 */
 		return $firstAllowed;
+	}
+
+
+	/**
+	 * Retrieve the authority for the given IdP metadata.
+	 *
+	 * This function provides backwards-compatibility with
+	 * previous versions of simpleSAMLphp.
+	 *
+	 * @param array $idpmetadata  The IdP metadata.
+	 * @return string  The authority that should be used to validate the session.
+	 */
+	public static function getAuthority(array $idpmetadata) {
+
+		if (isset($idpmetadata['authority'])) {
+			return $idpmetadata['authority'];
+		}
+
+		$candidates = array(
+			'auth/login-admin.php' => 'login-admin',
+			'auth/login-auto.php' => 'login-auto',
+			'auth/login-cas-ldap.php' => 'login-cas-ldap',
+			'auth/login-feide.php' => 'login-feide',
+			'auth/login-ldapmulti.php' => 'login-ldapmulti',
+			'auth/login-radius.php' => 'login-radius',
+			'auth/login-tlsclient.php' => 'tlsclient',
+			'auth/login-wayf-ldap.php' => 'login-wayf-ldap',
+			'auth/login.php' => 'login',
+		);
+		if (isset($candidates[$idpmetadata['auth']])) {
+			return $candidates[$idpmetadata['auth']];
+		}
+		throw new SimpleSAML_Error_Exception('You need to set \'authority\' in the metadata for ' .
+			var_export($idpmetadata['entityid'], TRUE) . '.');
 	}
 
 

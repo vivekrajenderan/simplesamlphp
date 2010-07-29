@@ -55,20 +55,31 @@ abstract class SimpleSAML_SessionHandler {
 	abstract public function getSessionId();
 
 
-	/**
-	 * Save the session.
+	/* This function is used to store data in this session object.
 	 *
-	 * @param SimpleSAML_Session $session  The session object we should save.
+	 * Note: You are allowed to store a reference to an object in the
+	 * session. We will store the latest value the object has on script
+	 * termination.
+	 *
+	 * Parameters:
+	 *  $key    The key we are going to set the value of. This key must
+	 *          be an alphanumeric string.
+	 *  $value  The value the key should have.
 	 */
-	abstract public function saveSession(SimpleSAML_Session $session);
+	abstract public function set($key, $value);
 
 
-	/**
-	 * Load the session.
+	/* This function retrieves a value from this session object.
 	 *
-	 * @return SimpleSAML_Session|NULL  The session object, or NULL if it doesn't exist.
+	 * Parameters:
+	 *  $key    The key we are going to retrieve the value of. This key
+	 *          must be an alphanumeric string.
+	 *
+	 * Returns:
+	 *  The value of the key, or NULL if no value is associated with
+	 *  this key.
 	 */
-	abstract public function loadSession();
+	abstract public function get($key);
 
 
 	/**
@@ -118,53 +129,6 @@ abstract class SimpleSAML_SessionHandler {
 		return TRUE;
 	}
 
-
-	/**
-	 * Get the cookie parameters that should be used for session cookies.
-	 *
-	 * @return array
-	 * @link http://www.php.net/manual/en/function.session-get-cookie-params.php
-	 */
-	public function getCookieParams() {
-
-		$config = SimpleSAML_Configuration::getInstance();
-
-		return array(
-			'lifetime' => $config->getInteger('session.cookie.lifetime', 0),
-			'path' => $config->getString('session.cookie.path', '/'),
-			'domain' => $config->getString('session.cookie.domain', NULL),
-			'secure' => $config->getBoolean('session.cookie.secure', FALSE),
-			'httponly' => TRUE,
-		);
-	}
-
-
-	/**
-	 * Set a session cookie.
-	 *
-	 * @param string $name  The name of the session cookie.
-	 * @param string|NULL $value  The value of the cookie. Set to NULL to delete the cookie.
-	 */
-	public function setCookie($name, $value) {
-		assert('is_string($name)');
-		assert('is_string($value) || is_null($value)');
-
-		$params = $this->getCookieParams();
-
-		if ($value === NULL) {
-			$expire = time() - 365*24*60*60;
-		} elseif ($params['lifetime'] === 0) {
-			$expire = 0;
-		} else {
-			$expire = time() + $params['lifetime'];;
-		}
-
-		$version = explode('.', PHP_VERSION);
-		if ((int)$version[0] === 5 && (int)$version[1] < 2) {
-			setcookie($name, $value, $expire, $params['path'], $params['domain'], $params['secure']);
-		} else {
-			setcookie($name, $value, $expire, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
-		}
-	}
-
 }
+
+?>

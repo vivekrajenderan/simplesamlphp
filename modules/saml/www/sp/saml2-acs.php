@@ -47,8 +47,8 @@ SimpleSAML_Logger::debug('Received SAML2 Response from ' . var_export($idp, TRUE
 $idpMetadata = $source->getIdPmetadata($idp);
 
 try {
-	$assertion = sspmod_saml_Message::processResponse($spMetadata, $idpMetadata, $response);
-} catch (sspmod_saml_Error $e) {
+	$assertion = sspmod_saml2_Message::processResponse($spMetadata, $idpMetadata, $response);
+} catch (sspmod_saml2_Error $e) {
 	/* The status of the response wasn't "success". */
 	$e = $e->toException();
 	SimpleSAML_Auth_State::throwException($state, $e);

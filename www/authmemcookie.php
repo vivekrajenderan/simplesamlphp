@@ -60,9 +60,7 @@ try {
 	$sessionID = SimpleSAML_Utilities::generateID();
 
 	$cookieName = $amc->getCookieName();
-
-	$sessionHandler = SimpleSAML_SessionHandler::getSessionHandler();
-	$sessionHandler->setCookie($cookieName, $sessionID);
+	setcookie($cookieName, $sessionID, 0, '/', NULL, SimpleSAML_Utilities::isHTTPS(), TRUE);
 
 
 	/* Generate the authentication information. */

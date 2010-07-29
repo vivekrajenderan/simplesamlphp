@@ -75,38 +75,46 @@ class SimpleSAML_XHTML_Template {
 	 */
 	public function setLanguage($language) {
 		$this->language = $language;
-		SimpleSAML_XHTML_Template::setLanguageCookie($language);
+		// setcookie ( string $name [, string $value [, int $expire [, string $path [, string $domain [, bool $secure [, bool $httponly ]]]]]] )
+		// time()+60*60*24*900 expires 900 days from now.
+		if (!headers_sent()) {
+			setcookie('language', $language, time()+60*60*24*900, '/');
+		}
 	}
 
 	/**
 	 * getLanguage() will return the language selected by the user, or the default language
-	 * This function first looks for a cached language code,
+	 * This function first looks for a cached language code, 
 	 * then checks for a language cookie,
 	 * then it tries to calculate the preferred language from HTTP headers.
 	 * Last it returns the default language.
-	 */
-	public function getLanguage() {
-
+	 */	
+	public function getLanguage($checkHTTP = TRUE, $defaultFallback = TRUE) {
+		
 		// Language is set in object
 		if (isset($this->language)) {
 			return $this->language;
 		}
 
 		// Language is provided in a stored COOKIE
-		$languageCookie = SimpleSAML_XHTML_Template::getLanguageCookie();
-		if ($languageCookie !== NULL) {
-			$this->language = $languageCookie;
-			return $languageCookie;
+		if (isset($_COOKIE['language'])) {
+			$this->language = $_COOKIE['language'];
+			return $this->language;
 		}
-
-		/* Check if we can find a good language from the Accept-Language http header. */
-		$httpLanguage = $this->getHTTPLanguage();
-		if ($httpLanguage !== NULL) {
-			return $httpLanguage;
+		
+		if ($checkHTTP) {
+			/* Check if we can find a good language from the Accept-Language http header. */
+			$httpLanguage = $this->getHTTPLanguage();
+			if ($httpLanguage !== NULL) {
+				return $httpLanguage;
+			}
 		}
 
 		// Language is not set, and we get the default language from the configuration.
-		return $this->getDefaultLanguage();
+		if ($defaultFallback) 
+			return $this->getDefaultLanguage();
+			
+		return NULL;
 	}
 
 
@@ -155,7 +163,13 @@ class SimpleSAML_XHTML_Template {
 		return $bestLanguage;
 	}
 
-
+	/**
+	 * Returns the language base (from configuration)
+	 */
+	private function getBaseLanguage() {
+		return 'en';
+	}
+	
 	/**
 	 * Returns the language default (from configuration)
 	 */
@@ -279,9 +293,10 @@ class SimpleSAML_XHTML_Template {
 			return $translations[$default_language];
 		}
 
-		/* Check for english translation. */
-		if(array_key_exists('en', $translations)) {
-			return $translations['en'];
+		/* Look up translation of tag in the base language. */
+		$base_language = $this->getBaseLanguage();
+		if(array_key_exists($base_language, $translations)) {
+			return $translations[$base_language];
 		}
 
 		/* Pick the first translation available. */
@@ -384,7 +399,7 @@ class SimpleSAML_XHTML_Template {
 	public function includeInlineTranslation($tag, $translation) {
 		
 		if (is_string($translation)) {
-			$translation = array('en' => $translation);
+			$translation = array($this->getBaseLanguage() => $translation);
 		} elseif (!is_array($translation)) {
 			throw new Exception("Inline translation should be string or array. Is " . gettype($translation) . " now!");
 		}
@@ -598,35 +613,6 @@ class SimpleSAML_XHTML_Template {
 		SimpleSAML_Logger::critical($_SERVER['PHP_SELF'] . ' - ' . $error);
 
 		throw new Exception($error);
-	}
-
-
-	/**
-	 * Retrieve the user-selected language from a cookie.
-	 *
-	 * @return string|NULL  The language, or NULL if unset.
-	 */
-	public static function getLanguageCookie() {
-
-		if (!isset($_COOKIE['language'])) {
-			return NULL;
-		}
-		return (string)$_COOKIE['language'];
-	}
-
-
-	/**
-	 * Set the user-selected language in a cookie.
-	 *
-	 * @param string $language  The language.
-	 */
-	public static function setLanguageCookie($language) {
-		assert('is_string($language)');
-
-		if (headers_sent()) {
-			return;
-		}
-		setcookie('language', $language, time()+60*60*24*900, '/');
 	}
 
 }

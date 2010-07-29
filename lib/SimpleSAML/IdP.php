@@ -199,7 +199,16 @@ class SimpleSAML_IdP {
 	public function getAssociations() {
 
 		$session = SimpleSAML_Session::getInstance();
-		return $session->getAssociations($this->associationGroup);
+
+		$associations = $session->getAssociations($this->associationGroup);
+
+		foreach ($associations as &$a) {
+			if (!isset($a['core:IdP'])) {
+				$a['core:IdP'] = $this->id;
+			}
+		}
+
+		return $associations;
 	}
 
 
@@ -213,47 +222,6 @@ class SimpleSAML_IdP {
 
 		$session = SimpleSAML_Session::getInstance();
 		$session->terminateAssociation($this->associationGroup, $assocId);
-	}
-
-
-	/**
-	 * Retrieve the authority for the given IdP metadata.
-	 *
-	 * This function provides backwards-compatibility with
-	 * previous versions of simpleSAMLphp.
-	 *
-	 * @param array $idpmetadata  The IdP metadata.
-	 * @return string  The authority that should be used to validate the session.
-	 */
-	private function getAuthority() {
-
-		if ($this->config->hasValue('authority')) {
-			return $this->config->getString('authority');
-		}
-
-		$candidates = array(
-			'auth/login-admin.php' => 'login-admin',
-			'auth/login-cas-ldap.php' => 'login-cas-ldap',
-			'auth/login-ldapmulti.php' => 'login-ldapmulti',
-			'auth/login-radius.php' => 'login-radius',
-			'auth/login-tlsclient.php' => 'tlsclient',
-			'auth/login-wayf-ldap.php' => 'login-wayf-ldap',
-			'auth/login.php' => 'login',
-		);
-
-		$auth = $this->config->getString('auth');
-
-		if (isset($candidates[$auth])) {
-			return $candidates[$auth];
-		}
-		if (strpos($auth, '/') !== FALSE) {
-			/* Probably a file. */
-			throw new SimpleSAML_Error_Exception('You need to set \'authority\' in the metadata for ' .
-				var_export($this->id, TRUE) . '.');
-		} else {
-			throw new SimpleSAML_Error_Exception('Unknown authsource ' .
-				var_export($auth, TRUE) . '.');
-		}
 	}
 
 
@@ -278,7 +246,7 @@ class SimpleSAML_IdP {
 		}
 
 		/* It wasn't an authentication source. */
-		$authority = $this->getAuthority();
+		$authority = SimpleSAML_Utilities::getAuthority($this->config->toArray());
 		return $session->isValid($authority);
 	}
 
