@@ -88,28 +88,19 @@ class SimpleSAML_XML_Shib13_AuthnResponse {
 
 		/* Get the metadata of the issuer. */
 		$metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
-		$md = $metadata->getMetaDataConfig($issuer, 'shib13-idp-remote');
+		$md = $metadata->getMetaData($issuer, 'shib13-idp-remote');
 
-		$publicKeys = $md->getPublicKeys('signing');
-		if ($publicKeys !== NULL) {
-			$certFingerprints = array();
-			foreach ($publicKeys as $key) {
-				if ($key['type'] !== 'X509Certificate') {
-					continue;
-				}
-				$certFingerprints[] = sha1(base64_decode($key['X509Certificate']));
-			}
-			$this->validator->validateFingerprint($certFingerprints);
-		} elseif ($md->hasValue('certFingerprint')) {
-			$certFingerprints = $md->getArrayizeString('certFingerprint');
+		if(array_key_exists('certFingerprint', $md)) {
+			/* Get fingerprint for the certificate of the issuer. */
+			$issuerFingerprint = $md['certFingerprint'];
 
 			/* Validate the fingerprint. */
-			$this->validator->validateFingerprint($certFingerprints);
-		} elseif ($md->hasValue('caFile')) {
+			$this->validator->validateFingerprint($issuerFingerprint);
+		} elseif(array_key_exists('caFile', $md)) {
 			/* Validate against CA. */
-			$this->validator->validateCA(SimpleSAML_Utilities::resolveCert($md->getString('caFile')));
+			$this->validator->validateCA(SimpleSAML_Utilities::resolveCert($md['caFile']));
 		} else {
-			throw new SimpleSAML_Error_Exception('Missing certificate in Shibboleth 1.3 IdP Remote metadata for identity provider [' . $issuer . '].');
+			throw new Exception('Required field [certFingerprint] or [caFile] in Shibboleth 1.3 IdP Remote metadata was not found for identity provider [' . $issuer . ']. Please add a fingerprint and try again. You can add a dummy fingerprint first, and then an error message will be printed with the real fingerprint.');
 		}
 
 		return true;

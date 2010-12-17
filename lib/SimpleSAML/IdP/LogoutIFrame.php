@@ -60,7 +60,12 @@ class SimpleSAML_IdP_LogoutIFrame extends SimpleSAML_IdP_LogoutHandler {
 		assert('is_string($assocId)');
 
 		$spId = sha1($assocId);
-		$this->idp->terminateAssociation($assocId);
+		$cookieId = 'logout-iframe-' . $spId;
+
+		$globalConfig = SimpleSAML_Configuration::getInstance();
+		$cookiePath = '/' . $globalConfig->getBaseURL();
+
+		setcookie($cookieId, ($error ? 'failed' : 'completed'), time() + 5*60, $cookiePath);
 
 		echo('<!DOCTYPE html>
 <html>

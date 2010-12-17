@@ -5,10 +5,11 @@ require_once('../../_include.php');
 /* Load simpleSAMLphp, configuration and metadata */
 $config = SimpleSAML_Configuration::getInstance();
 $metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
+$session = SimpleSAML_Session::getInstance();
 
 
 if (!$config->getBoolean('enable.shib13-sp', false))
-	throw new SimpleSAML_Error_Error('NOACCESS');
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOACCESS');
 
 /* Check if valid local session exists.. */
 if ($config->getBoolean('admin.protectmetadata', false)) {
@@ -81,6 +82,7 @@ try {
 		$t->data['metadata'] = htmlspecialchars($metaxml);
 		$t->data['metadataflat'] = htmlspecialchars($metaflat);
 		$t->data['metaurl'] = SimpleSAML_Utilities::addURLparameter(SimpleSAML_Utilities::selfURLNoQuery(), array('output' => 'xml'));
+		$t->data['techemail'] = $config->getString('technicalcontact_email', 'na');
 		$t->show();
 		
 	} else {	
@@ -95,7 +97,7 @@ try {
 	
 } catch(Exception $exception) {
 	
-	throw new SimpleSAML_Error_Error('METADATA', $exception);
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'METADATA', $exception);
 
 }
 

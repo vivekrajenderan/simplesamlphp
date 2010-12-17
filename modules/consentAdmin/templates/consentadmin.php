@@ -75,13 +75,9 @@ span.showhide {
 			foreach ($spList AS $spName => $spValues) {
 				$this->includeInlineTranslation('spname', $spValues['name']);
 				$this->includeInlineTranslation('spdescription', $spValues['description']);
-                if (!is_null($spValues['serviceurl'])) {
-                    $htmlSpName = '<a href="' . $spValues['serviceurl'] . '" style="color: black; font-weight: bold;">' . htmlspecialchars($this->t('spname', array(), false, true)) . '</a>';
-                } else {
-                    $htmlSpName = htmlspecialchars($this->t('spname', array(), false, true));
-                }
+				$htmlSpName = htmlspecialchars($this->t('spname', array(), false, true));
 				$spDescription = htmlspecialchars($this->t('spdescription',array(), false, true));
-				$checkedAttr = $spValues['consentStatus'] == 'ok' ? 'checked="checked"' : '';
+				$checkedAttr = $spValues['consentStatus'] == 'ok' ? "checked='yes'" : "";
 				$consentValue = $spValues['consentValue'];
 				$consentText = $spValues['consentStatus'] == 'changed' ? "attributes has changed" : "";
 				$row_class = ($show_spid % 2) ? "row0" : "row1";
@@ -90,6 +86,7 @@ span.showhide {
 <td>
 	<table>
 	  <tr class="$row_class"><td><span class='caSPName'><span title='$spDescription'>$htmlSpName</span>&emsp;<span style="font-size: 80%;"onclick="javascript:toggleShowAttributes('$show_spid');"><span id=showing_$show_spid >$show_text</span><span id=hiding_$show_spid style='display:none;'>$hide_text</span> $attributes_text</span></span></td>
+	  <!-- <tr><td><a class="orange" href="javascript:toggleShowAttributes('$show_spid');">$show_hide_attributes</a></td></tr> -->
 	  <tr><td colspan="2" class="caAttributes"><div id="attributes_$show_spid" style="display: none;">
 TRSTART;
 				$attributes = $spValues['attributes_by_sp'];
@@ -102,7 +99,7 @@ TRSTART;
 				if (isset($this->data['attribute_' . htmlspecialchars(strtolower($name)) ])) {
 				  $name = $this->data['attribute_' . htmlspecialchars(strtolower($name))];
 				}
-				$name = $this->getAttributeTranslation($name); // translate
+				$name = $this->t('attribute_'.strtolower($name)); // translate
 				if (sizeof($value) > 1) {
 						echo "<li>" . htmlspecialchars($name) . ":\n<ul>\n";
 						foreach ($value AS $v) {

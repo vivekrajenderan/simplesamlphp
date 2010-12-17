@@ -46,14 +46,6 @@ class SimpleSAML_IdP {
 
 
 	/**
-	 * Our authsource.
-	 *
-	 * @var SimpleSAML_Auth_Simple
-	 */
-	private $authSource;
-
-
-	/**
 	 * Initialize an IdP.
 	 *
 	 * @param string $id  The identifier of this IdP.
@@ -98,23 +90,6 @@ class SimpleSAML_IdP {
 			$this->associationGroup = $this->id;
 		}
 
-
-		$auth = $this->config->getString('auth');
-		if (SimpleSAML_Auth_Source::getById($auth) !== NULL) {
-			$this->authSource = new SimpleSAML_Auth_Simple($auth);
-		} else {
-			$this->authSource = new SimpleSAML_Auth_BWC($auth, $this->config->getString('authority', NULL));
-		}
-	}
-
-
-	/**
-	 * Retrieve the ID of this IdP.
-	 *
-	 * @return string  The ID of this IdP.
-	 */
-	public function getId() {
-		return $this->id;
 	}
 
 
@@ -224,7 +199,16 @@ class SimpleSAML_IdP {
 	public function getAssociations() {
 
 		$session = SimpleSAML_Session::getInstance();
-		return $session->getAssociations($this->associationGroup);
+
+		$associations = $session->getAssociations($this->associationGroup);
+
+		foreach ($associations as &$a) {
+			if (!isset($a['core:IdP'])) {
+				$a['core:IdP'] = $this->id;
+			}
+		}
+
+		return $associations;
 	}
 
 
@@ -247,7 +231,23 @@ class SimpleSAML_IdP {
 	 * @return bool  TRUE if the user is authenticated, FALSE if not.
 	 */
 	public function isAuthenticated() {
-		return $this->authSource->isAuthenticated();
+
+		$session = SimpleSAML_Session::getInstance();
+
+		$authority = $this->config->getString('auth');
+		if ($session->isValid($authority)) {
+			return TRUE;
+		}
+
+		/* Maybe the 'auth' option didn't point to an authentication source? */
+		if (SimpleSAML_Auth_Source::getById($authority) !== NULL) {
+			/* It was an authentication source - the user is therefore not authenticated. */
+			return FALSE;
+		}
+
+		/* It wasn't an authentication source. */
+		$authority = SimpleSAML_Utilities::getAuthority($this->config->toArray());
+		return $session->isValid($authority);
 	}
 
 
@@ -283,7 +283,8 @@ class SimpleSAML_IdP {
 			throw new SimpleSAML_Error_Exception('Not authenticated.');
 		}
 
-		$state['Attributes'] = $idp->authSource->getAttributes();
+		$session = SimpleSAML_Session::getInstance();
+		$state['Attributes'] = $session->getAttributes();
 
 		if (isset($state['SPMetadata'])) {
 			$spMetadata = $state['SPMetadata'];
@@ -292,7 +293,6 @@ class SimpleSAML_IdP {
 		}
 
 		if (isset($state['core:SP'])) {
-			$session = SimpleSAML_Session::getInstance();
 			$previousSSOTime = $session->getData('core:idp-ssotime', $state['core:IdP'] . ';' . $state['core:SP']);
 			if ($previousSSOTime !== NULL) {
 				$state['PreviousSSOTimestamp'] = $previousSSOTime;
@@ -326,10 +326,47 @@ class SimpleSAML_IdP {
 			throw new SimpleSAML_Error_NoPassive('Passive authentication not supported.');
 		}
 
-		$state['IdPMetadata'] = $this->getConfig()->toArray();
-		$state['ReturnCallback'] = array('SimpleSAML_IdP', 'postAuth');
+		$auth = $this->config->getString('auth');
+		$authSource = SimpleSAML_Auth_Source::getById($auth);
+		if ($authSource === NULL) {
+			$session = SimpleSAML_Session::getInstance();
+			$config = SimpleSAML_Configuration::getInstance();
+			$authurl = '/' . $config->getBaseURL() . $auth;
 
-		$this->authSource->login($state);
+			$authnRequest = array(
+				'IsPassive' => isset($state['isPassive']) ? $state['isPassive'] : FALSE,
+				'ForceAuthn' => isset($state['ForceAuthn']) ? $state['ForceAuthn'] : FALSE,
+				'State' => $state,
+				'core:prevSession' => $session->getAuthnInstant(),
+			);
+
+			if (isset($state['saml:RequestId'])) {
+				$authnRequest['RequestID'] = $state['saml:RequestId'];
+			}
+			if (isset($state['SPMetadata']['entityid'])) {
+				$authnRequest['Issuer'] = $state['SPMetadata']['entityid'];
+			}
+			if (isset($state['saml:RelayState'])) {
+				$authnRequest['RelayState'] = $state['saml:RelayState'];
+			}
+			if (isset($state['saml:IDPList'])) {
+				$authnRequest['IDPList'] = $state['saml:IDPList'];
+			}
+
+			$authId = SimpleSAML_Utilities::generateID();
+			$session->setAuthnRequest('saml2', $authId, $authnRequest);
+
+			$relayState = SimpleSAML_Module::getModuleURL('core/idp/resumeauth.php', array('RequestID' => $authId));
+
+			SimpleSAML_Utilities::redirect($authurl, array(
+				'RelayState' => $relayState,
+				'AuthId' => $authId,
+				'protocol' => 'saml2',
+			));
+		}
+
+		$state['IdPMetadata'] = $this->getConfig()->toArray();
+		SimpleSAML_Auth_Default::initLogin($auth, array('SimpleSAML_IdP', 'postAuth'), NULL, $state);
 	}
 
 
@@ -367,7 +404,8 @@ class SimpleSAML_IdP {
 				$this->authenticate($state);
 				assert('FALSE');
 			} else {
-				foreach ($this->authSource->getAuthDataArray() as $k => $v) {
+				$session = SimpleSAML_Session::getInstance();
+				foreach ($session->getAuthState() as $k => $v) {
 					$state[$k] = $v;
 				}
 			}
@@ -442,12 +480,29 @@ class SimpleSAML_IdP {
 		}
 
 		/* Terminate the local session. */
-		$id = SimpleSAML_Auth_State::saveState($state, 'core:Logout:afterbridge');
-		$returnTo = SimpleSAML_Module::getModuleURL('core/idp/resumelogout.php',
-			array('id' => $id)
-		);
+		$session = SimpleSAML_Session::getInstance();
+		$authority = $session->getAuthority();
+		if ($authority !== NULL) {
+			/* We are logged in. */
 
-		$this->authSource->logout($returnTo);
+			$id = SimpleSAML_Auth_State::saveState($state, 'core:Logout:afterbridge');
+			$returnTo = SimpleSAML_Module::getModuleURL('core/idp/resumelogout.php',
+				array('id' => $id)
+			);
+
+			if ($authority === $this->config->getString('auth')) {
+				/* This is probably an authentication source. */
+				SimpleSAML_Auth_Default::initLogoutReturn($returnTo);
+			} elseif ($authority === 'saml2') {
+				/* SAML 2 SP which isn't an authentication source. */
+				SimpleSAML_Utilities::redirect('/' . $config->getBaseURL() . 'saml2/sp/initSLO.php',
+					array('RelayState' => $returnTo)
+				);
+			} else {
+				/* A different old-style authentication file. */
+				$session->doLogout();
+			}
+		}
 
 		$handler = $this->getLogoutHandler();
 		$handler->startLogout($state, $assocId);

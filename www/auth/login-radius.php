@@ -12,11 +12,14 @@ SimpleSAML_Logger::info('AUTH - radius: Accessing auth endpoint login');
 $error = null;
 $attributes = array();
 
+if (empty($session))
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOSESSION');
+
 /* Load the RelayState argument. The RelayState argument contains the address
  * we should redirect the user to after a successful authentication.
  */
 if (!array_key_exists('RelayState', $_REQUEST)) {
-	throw new SimpleSAML_Error_Error('NORELAYSTATE');
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NORELAYSTATE');
 }
 
 if (isset($_POST['username'])) {

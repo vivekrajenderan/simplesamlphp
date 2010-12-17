@@ -28,7 +28,6 @@ if ($data === NULL) {
 		'trackId' => $session->getTrackId(),
 		'url' => 'not set',
 		'version' => $config->getVersion(),
-		'referer' => 'not set',
 	);
 }
 
@@ -58,8 +57,6 @@ $message = '<h1>SimpleSAMLphp Error Report</h1>
 <p>Version: <tt>' . $data['version'] . '</tt></p>
 
 <p>Report ID: <tt>' . $data['reportId'] . '</tt></p>
-
-<p>Referer: <tt>' . htmlspecialchars($data['referer']) . '</tt></p>
 
 <hr />
 <div class="footer">This message was sent using simpleSAMLphp. Visit <a href="http://rnd.feide.no/simplesamlphp">simpleSAMLphp homepage</a>.</div>

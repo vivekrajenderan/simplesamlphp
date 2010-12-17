@@ -46,58 +46,14 @@ class SimpleSAML_Error_Exception extends Exception {
 
 		parent::__construct($message, $code);
 
-		$this->initBacktrace($this);
+		$this->backtrace = SimpleSAML_Utilities::buildBacktrace($this);
 
 		if ($cause !== NULL) {
-			$this->cause = SimpleSAML_Error_Exception::fromException($cause);
-		}
-	}
-
-
-	/**
-	 * Convert any exception into a SimpleSAML_Error_Exception.
-	 *
-	 * @param Exception $e  The exception.
-	 * @return SimpleSAML_Error_Exception  The new exception.
-	 */
-	public static function fromException(Exception $e) {
-
-		if ($e instanceof SimpleSAML_Error_Exception) {
-			return $e;
-		}
-		return new SimpleSAML_Error_UnserializableException($e);
-	}
-
-
-	/**
-	 * Load the backtrace from the given exception.
-	 *
-	 * @param Exception $exception  The exception we should fetch the backtrace from.
-	 */
-	protected function initBacktrace(Exception $exception) {
-
-		$this->backtrace = array();
-
-		/* Position in the top function on the stack. */
-		$pos = $exception->getFile() . ':' . $exception->getLine();
-
-		foreach($exception->getTrace() as $t) {
-
-			$function = $t['function'];
-			if(array_key_exists('class', $t)) {
-				$function = $t['class'] . '::' . $function;
+			if (!($cause instanceof SimpleSAML_Error_Exception)) {
+				$cause = new SimpleSAML_Error_UnserializableException($cause);
 			}
-
-			$this->backtrace[] = $pos . ' (' . $function . ')';
-
-			if(array_key_exists('file', $t)) {
-				$pos = $t['file'] . ':' . $t['line'];
-			} else {
-				$pos = '[builtin]';
-			}
+			$this->cause = $cause;
 		}
-
-		$this->backtrace[] = $pos . ' (N/A)';
 	}
 
 
@@ -112,22 +68,27 @@ class SimpleSAML_Error_Exception extends Exception {
 
 
 	/**
+	 * Replace the backtrace.
+	 *
+	 * This function is meant for subclasses which needs to replace the backtrace
+	 * of this exception, such as the SimpleSAML_Error_Unserializable class.
+	 *
+	 * @param array $backtrace  The new backtrace.
+	 */
+	protected function setBacktrace($backtrace) {
+		assert('is_array($backtrace)');
+
+		$this->backtrace = $backtrace;
+	}
+
+
+	/**
 	 * Retrieve the cause of this exception.
 	 *
 	 * @return SimpleSAML_Error_Exception|NULL  The cause of this exception.
 	 */
 	public function getCause() {
 		return $this->cause;
-	}
-
-
-	/**
-	 * Retrieve the class of this exception.
-	 *
-	 * @return string  The classname.
-	 */
-	public function getClass() {
-		return get_class($this);
 	}
 
 
@@ -144,7 +105,7 @@ class SimpleSAML_Error_Exception extends Exception {
 
 		$e = $this;
 		do {
-			$err = $e->getClass() . ': ' . $e->getMessage();
+			$err = get_class($e) . ': ' . $e->getMessage();
 			if ($e === $this) {
 				$ret[] = $err;
 			} else {

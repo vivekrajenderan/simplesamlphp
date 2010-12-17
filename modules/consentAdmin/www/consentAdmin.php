@@ -49,7 +49,7 @@ function driveProcessingChain($idp_metadata, $source, $sp_metadata, $sp_entityid
 	$targeted_id    = sspmod_consent_Auth_Process_Consent::getTargetedID($userid, $source, $destination);
 	$attribute_hash = sspmod_consent_Auth_Process_Consent::getAttributeHash($attributes, $hashAttributes);
 
-	SimpleSAML_Logger::info('consentAdmin: user: ' . $userid);
+	SimpleSAML_Logger::info('consentAdmin: user: ' . $hashed_user_id);
 	SimpleSAML_Logger::info('consentAdmin: target: ' . $targeted_id);
 	SimpleSAML_Logger::info('consentAdmin: attribute: ' . $attribute_hash);
 
@@ -60,46 +60,25 @@ function driveProcessingChain($idp_metadata, $source, $sp_metadata, $sp_entityid
 // Get config object
 $config = SimpleSAML_Configuration::getInstance();
 $cA_config = SimpleSAML_Configuration::getConfig('module_consentAdmin.php');
-$authority = $cA_config->getValue('authority');
-
-$as = new SimpleSAML_Auth_Simple($authority);
 
 // If request is a logout request
 if(array_key_exists('logout', $_REQUEST)) {
     $returnURL = $cA_config->getValue('returnURL');
-	$as->logout($returnURL);
+	SimpleSAML_Auth_Default::initLogout($returnURL);
 }
 
 $hashAttributes = $cA_config->getValue('attributes.hash');
+$authority = $cA_config->getValue('authority');
 
 /* Check if valid local session exists */
+$as = new SimpleSAML_Auth_Simple($authority);
 $as->requireAuth();
 
 // Get released attributes
 $attributes = $as->getAttributes();
 
-// Get metadata storage handler
-$metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
-
-/*
- * Get IdP id and metadata
- */
-if($as->getAuthData('saml:sp:IdP') !== NULL) {
-	/*
-	 * From a remote idp (as bridge)
- 	 */
-	$idp_entityid = $as->getAuthData('saml:sp:IdP');
-	$idp_metadata = $metadata->getMetaData($idp_entityid, 'saml20-idp-remote');
-} else {
-	/*
-	 * from the local idp
-	 */
-	$idp_entityid = $metadata->getMetaDataCurrentEntityID('saml20-idp-hosted');
-	$idp_metadata = $metadata->getMetaData($idp_entityid, 'saml20-idp-hosted');
-}
-
 // Get user ID
-$userid_attributename = (isset($idp_metadata['userid.attribute']) && is_string($idp_metadata['userid.attribute'])) ? $idp_metadata['userid.attribute'] : 'eduPersonPrincipalName';
+$userid_attributename = $config->getValue('consent_userid', 'eduPersonPrincipalName');
 $userids = $attributes[$userid_attributename];
 		
 if (empty($userids)) {
@@ -108,6 +87,9 @@ if (empty($userids)) {
 }
 
 $userid = $userids[0];
+
+// Get metadata storage handler
+$metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
 
 // Get all SP metadata
 $all_sp_metadata = $metadata->getList('saml20-sp-remote');
@@ -123,6 +105,25 @@ if (!empty($_GET['action'])) {
 }
 
 SimpleSAML_Logger::critical('consentAdmin: sp: ' .$sp_entityid.' action: '.$action);
+
+/*
+ * Get IdP id and metadata
+ */
+$session = SimpleSAML_Session::getInstance();
+
+if($session->getIdP() != null) {
+	/*
+	 * From a remote idp (as bridge)
+ 	 */
+	$idp_entityid = $session->getIdP();
+	$idp_metadata = $metadata->getMetaData($idp_entityid, 'saml20-idp-remote');
+} else {
+	/*
+	 * from the local idp
+	 */
+	$idp_entityid = $metadata->getMetaDataCurrentEntityID('saml20-idp-hosted');
+	$idp_metadata = $metadata->getMetaData($idp_entityid, 'saml20-idp-hosted');
+}
 
 // Remove services, whitch have consent disabled
 if(isset($idp_metadata['consent.disable'])) {
@@ -223,8 +224,6 @@ foreach ($all_sp_metadata as $sp_entityid => $sp_values) {
 	// Set name of SP
 	if(isset($sp_values['name']) && is_array($sp_values['name'])) {
 		$sp_name = $sp_metadata['name'];
-    } else if(isset($sp_values['name']) && is_string($sp_values['name'])) {
-		$sp_name = $sp_metadata['name'];
 	} elseif(isset($sp_values['OrganizationDisplayName']) && is_array($sp_values['OrganizationDisplayName'])) {
 		$sp_name = $sp_metadata['OrganizationDisplayName'];
 	} else {
@@ -238,9 +237,6 @@ foreach ($all_sp_metadata as $sp_entityid => $sp_values) {
 		$sp_description = $sp_metadata['description'];
 	}
 
-    // Add an URL to the service if present in metadata
-    $sp_service_url = isset($sp_metadata['ServiceURL']) ? $sp_metadata['ServiceURL'] : null;
-
 	// Fill out array for the template
 	$sp_list[$sp_entityid] = array(
 		'spentityid' => $sp_entityid,
@@ -249,7 +245,6 @@ foreach ($all_sp_metadata as $sp_entityid => $sp_values) {
 		'consentStatus' => $sp_status,
 		'consentValue' => $sp_entityid,
 		'attributes_by_sp' => $attributes_new,
-        'serviceurl' => $sp_service_url,
 	);
 }
 

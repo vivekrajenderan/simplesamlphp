@@ -116,38 +116,18 @@ class SimpleSAML_Memcache {
 	 *
 	 * @param $key    The key of the data.
 	 * @param $value  The value of the data.
-	 * @param int|NULL $expire  The expiration timestamp of the data.
 	 */
-	public static function set($key, $value, $expire = NULL) {
+	public static function set($key, $value) {
 		$savedInfo = array(
 			'timestamp' => microtime(TRUE),
 			'data' => $value
 			);
 
-		if ($expire === NULL) {
-			$expire = self::getExpireTime();
-		}
-
 		$savedInfoSerialized = serialize($savedInfo);
 
 		/* Store this object to all groups of memcache servers. */
 		foreach(self::getMemcacheServers() as $server) {
-			$server->set($key, $savedInfoSerialized, 0, $expire);
-		}
-	}
-
-
-	/**
-	 * Delete a key-value pair from the memcache servers.
-	 *
-	 * @param string $key  The key we should delete.
-	 */
-	public static function delete($key) {
-		assert('is_string($key)');
-
-		/* Store this object to all groups of memcache servers. */
-		foreach(self::getMemcacheServers() as $server) {
-			$server->delete($key);
+			$server->set($key, $savedInfoSerialized, 0, self::getExpireTime());
 		}
 	}
 

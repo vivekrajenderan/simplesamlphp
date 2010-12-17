@@ -139,8 +139,8 @@ class SimpleSAML_XHTML_IdPDisco {
 			$this->setIdPentityID = NULL;
 		}
 
-		if (array_key_exists('IDPList', $_REQUEST)) {
-			$this->scopedIDPList = $_REQUEST['IDPList'];
+		if (array_key_exists('IDPList', $_GET)) {
+			$this->scopedIDPList = $_GET['IDPList'];
 		}
 
 	}
@@ -352,19 +352,6 @@ class SimpleSAML_XHTML_IdPDisco {
 
 
 	/**
-	 * Save the current IdP choice to a cookie.
-	 *
-	 * @param string $idp  The entityID of the IdP.
-	 */
-	protected function setPreviousIdP($idp) {
-		assert('is_string($idp)');
-
-		$this->log('Choice made [' . $idp . '] Setting cookie.');
-		$this->setCookie('lastidp', $idp);
-	}
-
-
-	/**
 	 * Determine whether the choice of IdP should be saved.
 	 *
 	 * @return  TRUE if the choice should be saved, FALSE if not.
@@ -393,7 +380,9 @@ class SimpleSAML_XHTML_IdPDisco {
 		$idp = $this->getSelectedIdP();
 		if($idp !== NULL) {
 			/* The user selected this IdP. Save the choice in a cookie. */
-			$this->setPreviousIdP($idp);
+
+			$this->log('Choice made [' . $idp . '] Setting cookie.');
+			$this->setCookie('lastidp', $idp);
 
 			if($this->saveIdP()) {
 				$this->setCookie('remember', 1);

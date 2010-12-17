@@ -86,13 +86,6 @@ class SimpleSAML_Metadata_SAMLParser {
 	 */
 	private $organizationURL = array();
 	
-
-	/**
-	 * This is an array of the Contact Persons of this entity.
-	 */
-	private $contacts = array();
-
-
 	private $scopes;
 	private $attributes;
 	private $tags;
@@ -138,7 +131,7 @@ class SimpleSAML_Metadata_SAMLParser {
 
 		/* Process Extensions element, if it exists. */
 		$ext = self::processExtensions($entityElement);
-		$this->scopes = $ext['scope'];
+		$this->scopes = $ext['scopes'];
 		$this->tags = $ext['tags'];
 
 		/* Look over the RoleDescriptors. */
@@ -156,12 +149,6 @@ class SimpleSAML_Metadata_SAMLParser {
 		if ($entityElement->Organization) {
 			$this->processOrganization($entityElement->Organization);
 		}
-
-		if(!empty($entityElement->ContactPerson)) {
-			foreach($entityElement->ContactPerson as $contact) {
-				$this->processContactPerson($contact);
-			}
-		}
 	}
 
 
@@ -174,9 +161,7 @@ class SimpleSAML_Metadata_SAMLParser {
 	public static function parseFile($file) {
 		$doc = new DOMDocument();
 
-		$data = SimpleSAML_Utilities::fetch($file);
-
-		$res = $doc->loadXML($data);
+		$res = $doc->load($file);
 		if($res !== TRUE) {
 			throw new Exception('Failed to read XML from file: ' . $file);
 		}
@@ -244,10 +229,9 @@ class SimpleSAML_Metadata_SAMLParser {
 
 		if ($file === NULL) throw new Exception('Cannot open file NULL. File name not specified.');
 
-		$data = SimpleSAML_Utilities::fetch($file);
-
 		$doc = new DOMDocument();
-		$res = $doc->loadXML($data);
+
+		$res = $doc->load($file);
 		if($res !== TRUE) {
 			throw new Exception('Failed to read XML from file: ' . $file);
 		}
@@ -405,11 +389,6 @@ class SimpleSAML_Metadata_SAMLParser {
 			$ret['OrganizationURL'] = $this->organizationURL;
 		}
 
-		/*
-		 * Add contact metadata
-		 */
-		$ret['contacts'] = $this->contacts;
-
 		return $ret;
 	}
 
@@ -421,12 +400,12 @@ class SimpleSAML_Metadata_SAMLParser {
 	 * @param array $roleDescriptor  The parsed role desciptor.
 	 */
 	private function addExtensions(array &$metadata, array $roleDescriptor) {
-		assert('array_key_exists("scope", $roleDescriptor)');
+		assert('array_key_exists("scopes", $roleDescriptor)');
 		assert('array_key_exists("tags", $roleDescriptor)');
 
-		$scopes = array_merge($this->scopes, array_diff($roleDescriptor['scope'], $this->scopes));
+		$scopes = array_merge($this->scopes, array_diff($roleDescriptor['scopes'], $this->scopes));
 		if (!empty($scopes)) {
-			$metadata['scope'] = $scopes;
+			$metadata['scopes'] = $scopes;
 		}
 
 		$tags = array_merge($this->tags, array_diff($roleDescriptor['tags'], $this->tags));
@@ -487,9 +466,20 @@ class SimpleSAML_Metadata_SAMLParser {
 			$ret['description'] = $spd['description'];
 		}
 
-		/* Add public keys. */
-		if (!empty($spd['keys'])) {
-			$ret['keys'] = $spd['keys'];
+		/* Add certificate data. Only the first valid certificate will be added. */
+		foreach($spd['keys'] as $key) {
+			if($key['type'] !== 'X509Certificate') {
+				continue;
+			}
+
+			$certData = base64_decode($key['X509Certificate']);
+			if($certData === FALSE) {
+				/* Empty/invalid certificate. */
+				continue;
+			}
+
+			$ret['certData'] = preg_replace('/\s+/', '', str_replace(array("\r", "\n"), '', $key['X509Certificate']));
+			break;
 		}
 
 		/* Add extensions. */
@@ -538,9 +528,23 @@ class SimpleSAML_Metadata_SAMLParser {
 		/* Find the ArtifactResolutionService endpoint. */
 		$ret['ArtifactResolutionService'] = $idp['ArtifactResolutionService'];
 
-		/* Add public keys. */
-		if (!empty($idp['keys'])) {
-			$ret['keys'] = $idp['keys'];
+		/* Add certificate to metadata. Only the first valid certificate will be added. */
+		$ret['certFingerprint'] = array();
+		foreach($idp['keys'] as $key) {
+			if($key['type'] !== 'X509Certificate') {
+				continue;
+			}
+
+			$certData = base64_decode($key['X509Certificate']);
+			if($certData === FALSE) {
+				/* Empty/invalid certificate. */
+				continue;
+			}
+
+			/* Add the certificate data to the metadata. Only the first certificate will be added. */
+			$ret['certData'] = preg_replace('/\s+/', '', str_replace(array("\r", "\n"), '', $key['X509Certificate']));
+			$ret['certFingerprint'][] = sha1($certData);
+			break;
 		}
 
 		/* Add extensions. */
@@ -614,9 +618,20 @@ class SimpleSAML_Metadata_SAMLParser {
 			$ret['description'] = $spd['description'];
 		}
 
-		/* Add public keys. */
-		if (!empty($spd['keys'])) {
-			$ret['keys'] = $spd['keys'];
+		/* Add certificate data. Only the first valid certificate will be added. */
+		foreach($spd['keys'] as $key) {
+			if($key['type'] !== 'X509Certificate') {
+				continue;
+			}
+
+			$certData = base64_decode($key['X509Certificate']);
+			if($certData === FALSE) {
+				/* Empty/invalid certificate. */
+				continue;
+			}
+
+			$ret['certData'] = preg_replace('/\s+/', '', str_replace(array("\r", "\n"), '', $key['X509Certificate']));
+			break;
 		}
 
 
@@ -679,9 +694,23 @@ class SimpleSAML_Metadata_SAMLParser {
 		$ret['ArtifactResolutionService'] = $idp['ArtifactResolutionService'];
 
 
-		/* Add public keys. */
-		if (!empty($idp['keys'])) {
-			$ret['keys'] = $idp['keys'];
+		/* Add certificate to metadata. Only the first valid certificate will be added. */
+		$ret['certFingerprint'] = array();
+		foreach($idp['keys'] as $key) {
+			if($key['type'] !== 'X509Certificate') {
+				continue;
+			}
+
+			$certData = base64_decode($key['X509Certificate']);
+			if($certData === FALSE) {
+				/* Empty/invalid certificate. */
+				continue;
+			}
+
+			/* Add the certificate data to the metadata. Only the first certificate will be added. */
+			$ret['certData'] = preg_replace('/\s+/', '', str_replace(array("\r", "\n"), '', $key['X509Certificate']));
+			$ret['certFingerprint'][] = sha1($certData);
+			break;
 		}
 
 		/* Add extensions. */
@@ -741,7 +770,7 @@ class SimpleSAML_Metadata_SAMLParser {
 		}
 
 		$ext = self::processExtensions($element);
-		$ret['scope'] = $ext['scope'];
+		$ret['scopes'] = $ext['scopes'];
 		$ret['tags'] = $ext['tags'];
 
 		return $ret;
@@ -862,14 +891,14 @@ class SimpleSAML_Metadata_SAMLParser {
 	private static function processExtensions($element) {
 
 		$ret = array(
-			'scope' => array(),
+			'scopes' => array(),
 			'tags' => array(),
 		);
 
 		foreach ($element->Extensions as $e) {
 
 			if ($e instanceof SAML2_XML_shibmd_Scope) {
-				$ret['scope'][] = $e->scope;
+				$ret['scopes'][] = $e->scope;
 				continue;
 			}
 
@@ -910,38 +939,6 @@ class SimpleSAML_Metadata_SAMLParser {
 		$this->organizationName = $element->OrganizationName;
 		$this->organizationDisplayName = $element->OrganizationDisplayName;
 		$this->organizationURL = $element->OrganizationURL;
-	}
-
-	/**
-	 * Parse and process a ContactPerson element.
-	 *
-	 * @param SAML2_XML_md_ContactPerson $element  The ContactPerson element.
-	 */
-
-	private function processContactPerson(SAML2_XML_md_ContactPerson $element) {
-
-		$contactPerson = array();
-		if(!empty($element->contactType)) {
-			$contactPerson['contactType'] = $element->contactType;
-		}
-		if(!empty($element->Company)) {
-			$contactPerson['company'] = $element->Company;
-		}
-		if(!empty($element->GivenName)) {
-			$contactPerson['givenName'] = $element->GivenName;
-		}
-		if(!empty($element->SurName)) {
-			$contactPerson['surName'] = $element->SurName;
-		}
-		if(!empty($element->EmailAddress)) {
-			$contactPerson['emailAddress'] = $element->EmailAddress;
-		}
-		if(!empty($element->TelephoneNumber)) {
-			$contactPerson['telephoneNumber'] = $element->TelephoneNumber;
-		}
-		if(!empty($contactPerson)) {
-			$this->contacts[] = $contactPerson;
-		}
 	}
 
 

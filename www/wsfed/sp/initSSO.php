@@ -15,14 +15,15 @@ require_once('../../_include.php');
 
 $config = SimpleSAML_Configuration::getInstance();
 $metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
+$session = SimpleSAML_Session::getInstance();
 
 SimpleSAML_Logger::info('WS-Fed - SP.initSSO: Accessing WS-Fed SP initSSO script');
 
 if (!$config->getBoolean('enable.wsfed-sp', false))
-	throw new SimpleSAML_Error_Error('NOACCESS');
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOACCESS');
 
 if (empty($_GET['RelayState'])) {
-	throw new SimpleSAML_Error_Error('NORELAYSTATE');
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NORELAYSTATE');
 }
 
 try {
@@ -31,7 +32,7 @@ try {
 	$spentityid = isset($_GET['spentityid']) ? $_GET['spentityid'] : $metadata->getMetaDataCurrentEntityID('wsfed-sp-hosted');
 
 } catch (Exception $exception) {
-	throw new SimpleSAML_Error_Error('METADATA', $exception);
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'METADATA', $exception);
 }
 
 if ($idpentityid == null) {
@@ -59,7 +60,7 @@ try {
 		));
 	
 } catch (Exception $exception) {
-	throw new SimpleSAML_Error_Error('CREATEREQUEST', $exception);
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'CREATEREQUEST', $exception);
 }
 
 ?>

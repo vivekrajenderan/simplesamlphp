@@ -24,15 +24,14 @@ function finishLogin($authProcState) {
 	assert('array_key_exists("Source", $authProcState)');
 	assert('array_key_exists("entityid", $authProcState["Source"])');
 
-	$authData = array(
-		'Attributes' => $authProcState['Attributes'],
-		'saml:sp:NameID' => $authProcState['core:shib13-sp:NameID'],
-		'saml:sp:SessionIndex' => $authProcState['core:shib13-sp:SessionIndex'],
-		'saml:sp:IdP' => $authProcState['Source']['entityid'],
-	);
-
 	global $session;
-	$session->doLogin('shib13', $authData);
+
+	/* Update the session information */
+	$session->doLogin('shib13');
+	$session->setAttributes($authProcState['Attributes']);
+	$session->setNameID($authProcState['core:shib13-sp:NameID']);
+	$session->setSessionIndex($authProcState['core:shib13-sp:SessionIndex']);
+	$session->setIdP($authProcState['Source']['entityid']);
 
 	SimpleSAML_Utilities::redirect($authProcState['core:shib13-sp:TargetURL']);
 }
@@ -41,7 +40,7 @@ function finishLogin($authProcState) {
 SimpleSAML_Logger::info('Shib1.3 - SP.AssertionConsumerService: Accessing Shibboleth 1.3 SP endpoint AssertionConsumerService');
 
 if (!$config->getBoolean('enable.shib13-sp', false))
-	throw new SimpleSAML_Error_Error('NOACCESS');
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOACCESS');
 
 if (array_key_exists(SimpleSAML_Auth_ProcessingChain::AUTHPARAM, $_REQUEST)) {
 	/* We have returned from the authentication processing filters. */
@@ -52,7 +51,7 @@ if (array_key_exists(SimpleSAML_Auth_ProcessingChain::AUTHPARAM, $_REQUEST)) {
 }
 
 if (empty($_POST['SAMLResponse'])) 
-	throw new SimpleSAML_Error_Error('ACSPARAMS', $exception);
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'ACSPARAMS', $exception);
 
 try {
 
@@ -75,7 +74,7 @@ try {
 
 	$relayState = $authnResponse->getRelayState();
 	if (!isset($relayState)) {
-		throw new SimpleSAML_Error_Error('NORELAYSTATE');
+		SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NORELAYSTATE');
 	}
 
 	$spmetadata = $metadata->getMetaData(NULL, 'shib13-sp-hosted');
@@ -101,7 +100,7 @@ try {
 	finishLogin($authProcState);
 
 } catch(Exception $exception) {
-	throw new SimpleSAML_Error_Error('GENERATEAUTHNRESPONSE', $exception);
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'GENERATEAUTHNRESPONSE', $exception);
 }
 
 

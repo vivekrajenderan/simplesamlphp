@@ -12,12 +12,13 @@ $session = SimpleSAML_Session::getInstance();
 SimpleSAML_Logger::info('SAML2.0 - SP.SingleLogoutService: Accessing SAML 2.0 SP endpoint SingleLogoutService');
 
 if (!$config->getBoolean('enable.saml20-sp', TRUE))
-	throw new SimpleSAML_Error_Error('NOACCESS');
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOACCESS');
 
 
 
 // Destroy local session if exists.
-$session->doLogout('saml2');
+$session->doLogout();
+$session->clean();
 
 $binding = SAML2_Binding::getCurrentBinding();
 $message = $binding->receive();
@@ -33,7 +34,7 @@ $spEntityId = $metadata->getMetaDataCurrentEntityId('saml20-sp-hosted');
 $idpMetadata = $metadata->getMetaDataConfig($idpEntityId, 'saml20-idp-remote');
 $spMetadata = $metadata->getMetaDataConfig($spEntityId, 'saml20-sp-hosted');
 
-sspmod_saml_Message::validateMessage($idpMetadata, $spMetadata, $message);
+sspmod_saml2_Message::validateMessage($idpMetadata, $spMetadata, $message);
 
 if ($message instanceof SAML2_LogoutRequest) {
 
@@ -46,7 +47,7 @@ if ($message instanceof SAML2_LogoutRequest) {
 		SimpleSAML_Logger::stats('saml20-idp-SLO idpinit ' . $spEntityId . ' ' . $idpEntityId);
 
 		/* Create response. */
-		$lr = sspmod_saml_Message::buildLogoutResponse($spMetadata, $idpMetadata);
+		$lr = sspmod_saml2_Message::buildLogoutResponse($spMetadata, $idpMetadata);
 		$lr->setRelayState($message->getRelayState());
 		$lr->setInResponseTo($message->getId());
 
@@ -54,9 +55,10 @@ if ($message instanceof SAML2_LogoutRequest) {
 
 		/* Send response. */
 		$binding = new SAML2_HTTPRedirect();
+		$binding->setDestination(sspmod_SAML2_Message::getDebugDestination());
 		$binding->send($lr);
 	} catch (Exception $exception) {
-		throw new SimpleSAML_Error_Error('LOGOUTREQUEST', $exception);
+		SimpleSAML_Utilities::fatalError($session->getTrackID(), 'LOGOUTREQUEST', $exception);
 	}
 
 } elseif ($message instanceof SAML2_LogoutResponse) {
@@ -71,13 +73,13 @@ if ($message instanceof SAML2_LogoutRequest) {
 
 	$returnTo = $session->getData('spLogoutReturnTo', $id);
 	if (empty($returnTo)) {
-		throw new SimpleSAML_Error_Error('LOGOUTINFOLOST');
+		SimpleSAML_Utilities::fatalError($session->getTrackID(), 'LOGOUTINFOLOST');
 	}
 
 	SimpleSAML_Utilities::redirect($returnTo);
 
 } else {
-	throw new SimpleSAML_Error_Error('SLOSERVICEPARAMS');
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'SLOSERVICEPARAMS');
 }
 
 

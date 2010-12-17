@@ -4,16 +4,17 @@ require_once('../../../www/_include.php');
 
 $config = SimpleSAML_Configuration::getInstance();
 $metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
+$session = SimpleSAML_Session::getInstance();
 
 SimpleSAML_Logger::info('SAML2.0 - IdP.initSLO: Accessing SAML 2.0 IdP endpoint init Single Logout');
 
 if (!$config->getBoolean('enable.saml20-idp', false)) {
-	throw new SimpleSAML_Error_Error('NOACCESS');
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOACCESS');
 }
 
 
 if (!isset($_GET['RelayState'])) {
-	throw new SimpleSAML_Error_Error('NORELAYSTATE');
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NORELAYSTATE');
 }
 
 $returnTo = $_GET['RelayState'];

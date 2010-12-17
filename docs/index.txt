@@ -12,7 +12,6 @@ SimpleSAMLphp Documentation
   * [Connecting SimpleSAMLphp as a SP to UK Access Federation or InCommon](simplesamlphp-ukaccess)
   * [Upgrading - migration to use the SAML authentication source](simplesamlphp-sp-migration)
   * [Configuring HTTP-Artifact](./simplesamlphp-artifact-sp)
-  * [Using scoping](./simplesamlphp-scoping)
  * [Identity Provider QuickStart](simplesamlphp-idp)
   * [IdP hosted reference](simplesamlphp-reference-idp-hosted)
   * [SP remote reference](simplesamlphp-reference-sp-remote)
@@ -27,7 +26,6 @@ SimpleSAMLphp Documentation
  * [Theming simpleSAMLphp](simplesamlphp-theming)
  * [simpleSAMLphp Modules](simplesamlphp-modules) - how to create own customized modules
  * [Installing third party modules with the pack.php tool](pack)
- * [Key rollover](./saml:keyrollover)
 
 Documentation on specific simpleSAMLphp modules:
  

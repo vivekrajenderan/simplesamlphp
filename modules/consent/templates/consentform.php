@@ -137,7 +137,10 @@ function present_attributes($t, $attributes, $nameParent) {
 	
 	foreach ($attributes as $name => $value) {
 		$nameraw = $name;
-		$name = $t->getAttributeTranslation($parentStr . $nameraw);
+		$nameTag = '{attributes:attribute_' . $parentStr . str_replace(":", "_", strtolower($name) ) . '}';
+		if ($t->getTag($nameTag) !== NULL) {
+			$name = $t->t($nameTag);
+		}
 		
 		if (preg_match('/^child_/', $nameraw)) {
 			// Insert child table

@@ -16,11 +16,14 @@ $error = null;
 $attributes = array();
 $username = null;
 
+if (empty($session))
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOSESSION');
+
 /* Load the RelayState argument. The RelayState argument contains the address
  * we should redirect the user to after a successful authentication.
  */
 if (!array_key_exists('RelayState', $_REQUEST)) {
-	throw new SimpleSAML_Error_Error('NORELAYSTATE');
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NORELAYSTATE');
 }
 
 $relaystate = $_REQUEST['RelayState'];
@@ -35,7 +38,7 @@ try {
 		throw new Exception('Apache header variable SSL_CLIENT_VERIFY was not available. Recheck your apache configuration.');
 	
 	if (strcmp($_SERVER['SSL_CLIENT_VERIFY'], "SUCCESS") != 0) {
-		throw new SimpleSAML_Error_Error('NOTVALIDCERT', $e);
+		SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOTVALIDCERT', $e);
 	}
 	
 	$userid = $_SERVER['SSL_CLIENT_S_DN'];
@@ -73,7 +76,7 @@ try {
 	
 	
 } catch (Exception $e) {
-	throw new SimpleSAML_Error_Error('CONFIG', $e);
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'CONFIG', $e);
 
 }
 

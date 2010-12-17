@@ -63,13 +63,6 @@ if (array_key_exists('forcedUsername', $state)) {
 }
 $t->data['links'] = $source->getLoginLinks();
 $t->data['errorcode'] = $errorCode;
-
-if (isset($state['SPMetadata'])) {
-	$t->data['SPMetadata'] = $state['SPMetadata'];
-} else {
-	$t->data['SPMetadata'] = NULL;
-}
-
 $t->show();
 exit();
 

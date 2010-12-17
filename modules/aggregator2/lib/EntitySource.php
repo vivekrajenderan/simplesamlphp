@@ -123,8 +123,9 @@ class sspmod_aggregator2_EntitySource {
 			$context['ssl']['CN_match'] = parse_url($this->url, PHP_URL_HOST);
 		}
 
+		$context = stream_context_create($context);
 
-		$data = SimpleSAML_Utilities::fetch($this->url, $context);
+		$data = file_get_contents($this->url, 0, $context);
 		if ($data === FALSE || $data === NULL) {
 			SimpleSAML_Logger::error($this->logLoc . 'Unable to load metadata from ' .
 				var_export($this->url, TRUE));

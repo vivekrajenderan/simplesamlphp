@@ -180,7 +180,7 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 			SimpleSAML_Auth_State::throwException($state, new SimpleSAML_Error_ProxyCountExceeded("ProxyCountExceeded"));
 		}
 
-		$ar = sspmod_saml_Message::buildAuthnRequest($this->metadata, $idpMetadata);
+		$ar = sspmod_saml2_Message::buildAuthnRequest($this->metadata, $idpMetadata);
 
 		$ar->setAssertionConsumerServiceURL(SimpleSAML_Module::getModuleURL('saml/sp/saml2-acs.php/' . $this->authId));
 
@@ -242,6 +242,7 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 
 		SimpleSAML_Logger::debug('Sending SAML 2 AuthnRequest to ' . var_export($idpMetadata->getString('entityid'), TRUE));
 		$b = new SAML2_HTTPRedirect();
+		$b->setDestination(sspmod_SAML2_Message::getDebugDestination());
 		$b->send($ar);
 
 		assert('FALSE');
@@ -365,12 +366,13 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 			return;
 		}
 
-		$lr = sspmod_saml_Message::buildLogoutRequest($this->metadata, $idpMetadata);
+		$lr = sspmod_saml2_Message::buildLogoutRequest($this->metadata, $idpMetadata);
 		$lr->setNameId($nameId);
 		$lr->setSessionIndex($sessionIndex);
 		$lr->setRelayState($id);
 
 		$b = new SAML2_HTTPRedirect();
+		$b->setDestination(sspmod_SAML2_Message::getDebugDestination());
 		$b->send($lr);
 
 		assert('FALSE');
@@ -420,8 +422,6 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 
 		$authProcState = array(
 			'saml:sp:IdP' => $idp,
-			'saml:sp:NameID' => $state['saml:sp:NameID'],
-			'saml:sp:SessionIndex' => $state['saml:sp:SessionIndex'],
 			'saml:sp:State' => $state,
 			'ReturnCall' => array('sspmod_saml_Auth_Source_SP', 'onProcessingCompleted'),
 
@@ -473,6 +473,7 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 		$source->addLogoutCallback($idp, $state);
 
 		$state['Attributes'] = $authProcState['Attributes'];
+		$state['IdP'] = $idp;
 
 		if (isset($state['saml:sp:isUnsoliced']) && (bool)$state['saml:sp:isUnsoliced']) {
 			if (isset($state['saml:sp:RelayState'])) {

@@ -31,7 +31,7 @@ try {
 	$ldapconfig = $casldapconfig[$idpentityid]['ldap'];
 	
 } catch (Exception $exception) {
-	throw new SimpleSAML_Error_Error('METADATA', $exception);
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'METADATA', $exception);
 }
 
 /*
@@ -39,7 +39,7 @@ try {
  * we should redirect the user to after a successful authentication.
  */
 if (!array_key_exists('RelayState', $_REQUEST)) {
-	throw new SimpleSAML_Error_Error('NORELAYSTATE');
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NORELAYSTATE');
 }
 
 $relaystate = $_REQUEST['RelayState'];
@@ -62,7 +62,7 @@ if ($username = $_POST['username']) {
 			SimpleSAML_Utilities::redirect($relaystate);
 		}
 	} catch(Exception $e) {
-			throw new SimpleSAML_Error_Error('LDAPERROR', $e);
+			SimpleSAML_Utilities::fatalError($session->getTrackID(), 'LDAPERROR', $e);
 	}
 }
 

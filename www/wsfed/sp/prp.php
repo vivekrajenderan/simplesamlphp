@@ -21,7 +21,7 @@ $metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
 SimpleSAML_Logger::info('WS-Fed - SP.AssertionConsumerService: Accessing WS-Fed SP endpoint AssertionConsumerService');
 
 if (!$config->getBoolean('enable.wsfed-sp', false))
-	throw new SimpleSAML_Error_Error('NOACCESS');
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOACCESS');
 
 if (!empty($_GET['wa']) and ($_GET['wa'] == 'wsignoutcleanup1.0')) {
 	print 'Logged Out';
@@ -40,7 +40,7 @@ try {
 		throw new Exception('Missing wctx parameter');
 	}
 } catch(Exception $exception) {
-	throw new SimpleSAML_Error_Error('ACSPARAMS', $exception);
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'ACSPARAMS', $exception);
 }
 
 
@@ -78,7 +78,7 @@ try {
 
 	/* Find the certificate used by the IdP. */
 	if(array_key_exists('certificate', $idpMetadata)) {
-		$certFile = SimpleSAML_Utilities::resolveCert($idpMetadata['certificate']);
+		SimpleSAML_Utilities::resolveCert($idpMetadata['certificate']);
 	} else {
 		throw new Exception('Missing \'certificate\' metadata option in the \'wsfed-idp-remote\' metadata' .
 			' for the IdP \'' .  $idpEntityId . '\'.');
@@ -116,7 +116,7 @@ try {
 	}
 	$nameid = array(
 		'Format' => $nameid->item(0)->getAttribute('Format'),
-		'Value' => $nameid->item(0)->textContent,
+		'value' => $nameid->item(0)->textContent,
 		);
 
 
@@ -134,18 +134,16 @@ try {
 
 
 	/* Mark the user as logged in. */
-	$authData = array(
-		'Attributes' => $attributes,
-		'saml:sp:NameID' => $nameid,
-		'saml:sp:IdP' => $idpEntityId,
-	);
-	$session->doLogin('wsfed', $authData);
+	$session->doLogin('wsfed');
+	$session->setAttributes($attributes);
+	$session->setNameID($nameid);
+	$session->setIdP($idpEntityId);
 
 	/* Redirect the user back to the page which requested the login. */
 	SimpleSAML_Utilities::redirect($wctx);
 
 } catch(Exception $exception) {		
-	throw new SimpleSAML_Error_Error('PROCESSASSERTION', $exception);
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'PROCESSASSERTION', $exception);
 }
 
 ?>

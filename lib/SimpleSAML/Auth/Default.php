@@ -76,24 +76,11 @@ class SimpleSAML_Auth_Default {
 
 		/* Save persistent authentication data. */
 		$persistentAuthState = array();
-
-		if (isset($state['IdP'])) {
-			/* For backwards compatibility. */
-			$persistentAuthState['saml:sp:IdP'] = $state['IdP'];
-		}
-
 		if (isset($state['PersistentAuthData'])) {
 			foreach ($state['PersistentAuthData'] as $key) {
 				if (isset($state[$key])) {
 					$persistentAuthState[$key] = $state[$key];
 				}
-			}
-		}
-
-		/* Add those that should always be included. */
-		foreach (array('Attributes', 'Expires', 'LogoutState', 'AuthnInstant') as $a) {
-			if (isset($state[$a])) {
-				$persistentAuthState[$a] = $state[$a];
 			}
 		}
 
@@ -118,6 +105,20 @@ class SimpleSAML_Auth_Default {
 		/* Save session state. */
 		$session = SimpleSAML_Session::getInstance();
 		$session->doLogin($state['SimpleSAML_Auth_Default.id'], self::extractPersistentAuthState($state));
+		$session->setAttributes($state['Attributes']);
+		if(array_key_exists('Expires', $state)) {
+			$session->setSessionDuration($state['Expires'] - time());
+		}
+
+		if (array_key_exists('LogoutState', $state)) {
+			$session->setLogoutState($state['LogoutState']);
+		}
+
+		if (array_key_exists('IdP', $state)) {
+			$session->setIdP($state['IdP']);
+		} else {
+			$session->setIdP(NULL);
+		}
 
 		if (is_string($return)) {
 			/* Redirect... */
@@ -136,29 +137,20 @@ class SimpleSAML_Auth_Default {
 	 * will return if the logout operation does not require a redirect.
 	 *
 	 * @param string $returnURL  The URL we should redirect the user to after logging out.
-	 * @param string|NULL $authority  The authentication source we are logging out from, or NULL to log out of the most recent.
 	 */
-	public static function initLogoutReturn($returnURL, $authority = NULL) {
+	public static function initLogoutReturn($returnURL) {
 		assert('is_string($returnURL)');
-		assert('is_string($authority) || is_null($authority)');
 
 		$session = SimpleSAML_Session::getInstance();
 
-		if ($authority === NULL) {
-			$authority = $session->getAuthority();
-			if ($authority === NULL) {
-				/* Already logged out - nothing to do here. */
-				return;
-			}
-		}
-
-		$state = $session->getAuthData($authority, 'LogoutState');
-		$session->doLogout($authority);
+		$state = $session->getLogoutState();
+		$authId = $session->getAuthority();
+		$session->doLogout();
 
 		$state['SimpleSAML_Auth_Default.ReturnURL'] = $returnURL;
 		$state['LogoutCompletedHandler'] = array(get_class(), 'logoutCompleted');
 
-		$as = SimpleSAML_Auth_Source::getById($authority);
+		$as = SimpleSAML_Auth_Source::getById($authId);
 		if ($as === NULL) {
 			/* The authority wasn't an authentication source... */
 			self::logoutCompleted($state);
@@ -175,13 +167,11 @@ class SimpleSAML_Auth_Default {
 	 * never returns.
 	 *
 	 * @param string $returnURL  The URL we should redirect the user to after logging out.
-	 * @param string|NULL $authority  The authentication source we are logging out from, or NULL to log out of the most recent.
 	 */
-	public static function initLogout($returnURL, $authority = NULL) {
+	public static function initLogout($returnURL) {
 		assert('is_string($returnURL)');
-		assert('is_string($authority) || is_null($authority)');
 
-		self::initLogoutReturn($returnURL, $authority);
+		self::initLogoutReturn($returnURL);
 
 		/* Redirect... */
 		SimpleSAML_Utilities::redirect($returnURL);
@@ -250,6 +240,26 @@ class SimpleSAML_Auth_Default {
 
 		$session = SimpleSAML_Session::getInstance();
 		$session->doLogin($authId, self::extractPersistentAuthState($state));
+
+		if (array_key_exists('Attributes', $state)) {
+			$session->setAttributes($state['Attributes']);
+		} else {
+			$session->setAttributes(array());
+		}
+
+		if(array_key_exists('Expires', $state)) {
+			$session->setSessionDuration($state['Expires'] - time());
+		}
+
+		if (array_key_exists('LogoutState', $state)) {
+			$session->setLogoutState($state['LogoutState']);
+		}
+
+		if (array_key_exists('IdP', $state)) {
+			$session->setIdP($state['IdP']);
+		} else {
+			$session->setIdP(NULL);
+		}
 
 		SimpleSAML_Utilities::redirect($redirectTo);
 	}

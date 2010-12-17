@@ -171,12 +171,7 @@ class SimpleSAML_Logger {
 		}
 
 		
-		if (self::$captureLog) {
-			$ts = microtime(TRUE);
-			$msecs = (int)(($ts - (int)$ts) * 1000);
-			$ts = GMdate('H:i:s', $ts) . sprintf('.%03d', $msecs) . 'Z';
-			self::$capturedLog[] = $ts . ' ' . $string;
-		}
+		if (self::$captureLog) self::$capturedLog[] = $string;
 		
 		if (self::$logLevel >= $level || $statsLog) {
 			if (is_array($string)) $string = implode(",",$string);

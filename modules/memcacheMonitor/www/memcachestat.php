@@ -72,37 +72,44 @@ function humanreadable($input) {
 
 
 
-$config = SimpleSAML_Configuration::getInstance();
+try {
 
-/* Make sure that the user has admin access rights. */
-SimpleSAML_Utilities::requireAdmin();
+	$config = SimpleSAML_Configuration::getInstance();
+	$session = SimpleSAML_Session::getInstance();
+
+	/* Make sure that the user has admin access rights. */
+	SimpleSAML_Utilities::requireAdmin();
 
 
-$formats = array(
-	'bytes' => 'humanreadable',
-	'bytes_read' => 'humanreadable',
-	'bytes_written' => 'humanreadable',
-	'limit_maxbytes' => 'humanreadable',
-	'time' => 'tdate',
-	'uptime' => 'hours',
-);
+	$formats = array(
+		'bytes' => 'humanreadable',
+		'bytes_read' => 'humanreadable',
+		'bytes_written' => 'humanreadable',
+		'limit_maxbytes' => 'humanreadable',
+		'time' => 'tdate',
+		'uptime' => 'hours',
+	);
+	
+	$statsraw = SimpleSAML_Memcache::getStats();
+	
+	$stats = $statsraw;
 
-$statsraw = SimpleSAML_Memcache::getStats();
-
-$stats = $statsraw;
-
-foreach($stats AS $key => &$entry) {
-	if (array_key_exists($key, $formats)) {
-		$func = $formats[$key];
-		foreach($entry AS $k => $val) {
-			$entry[$k] = $func($val);
+	foreach($stats AS $key => &$entry) {
+		if (array_key_exists($key, $formats)) {
+			$func = $formats[$key];
+			foreach($entry AS $k => $val) {
+				$entry[$k] = $func($val);
+			}
 		}
+		
 	}
 
-}
+	$template = new SimpleSAML_XHTML_Template($config, 'memcacheMonitor:memcachestat.tpl.php');
+	$template->data['title'] = 'Memcache stats';
+	$template->data['table'] = $stats;
+	$template->data['statsraw'] = $statsraw;
+	$template->show();
 
-$template = new SimpleSAML_XHTML_Template($config, 'memcacheMonitor:memcachestat.tpl.php');
-$template->data['title'] = 'Memcache stats';
-$template->data['table'] = $stats;
-$template->data['statsraw'] = $statsraw;
-$template->show();
+} catch(Exception $e) {
+	SimpleSAML_Utilities::fatalError('na', NULL, $e);
+}

@@ -9,13 +9,13 @@ $session = SimpleSAML_Session::getInstance();
 SimpleSAML_Logger::info('WS-Fed - SP.initSLO: Accessing WS-Fed SP initSLO script');
 
 if (!$config->getBoolean('enable.wsfed-sp', false))
-	throw new SimpleSAML_Error_Error('NOACCESS');
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOACCESS');
 
 
 if (isset($_REQUEST['RelayState'])) {
 	$returnTo = $_REQUEST['RelayState'];
 } else {
-	throw new SimpleSAML_Error_Error('NORELAYSTATE');
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NORELAYSTATE');
 }
 
 	
@@ -25,14 +25,14 @@ if (isset($session) ) {
 	
 		$metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
 	
-		$idpentityid = $session->getAuthData('wsfed', 'saml:sp:IdP');
+		$idpentityid = $session->getIdP();
 		$spentityid = isset($_GET['spentityid']) ? $_GET['spentityid'] : $metadata->getMetaDataCurrentEntityID();
 	
 		/**
 		 * Create a logout request
 		 */		
 		
-		$session->doLogout('wsfed');
+		$session->doLogout();
 		
 		SimpleSAML_Logger::info('WS-Fed - SP.initSLO: SP (' . $spentityid . ') is sending logout request to IdP (' . $idpentityid . ')');
 			
@@ -47,7 +47,7 @@ if (isset($session) ) {
 		
 
 	} catch(Exception $exception) {
-		throw new SimpleSAML_Error_Error('CREATEREQUEST', $exception);
+		SimpleSAML_Utilities::fatalError($session->getTrackID(), 'CREATEREQUEST', $exception);
 	}
 
 } else {

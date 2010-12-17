@@ -11,10 +11,7 @@ class SAML2_ArtifactResponse extends SAML2_StatusResponse {
 
 
 	/**
-	 * The DOMElement with the message the artifact refers
-	 * to, or NULL if we don't refer to any artifact.
-	 *
-	 * @var DOMElement|NULL
+	 * @var any contains saml2message XML
 	 */
 	private $any;
 
@@ -41,7 +38,8 @@ class SAML2_ArtifactResponse extends SAML2_StatusResponse {
 	}
 
 
-	public function setAny(DOMElement $any = NULL) {
+	public function setAny(DOMElement $any) {
+		assert('!is_null($any)');
 		$this->any = $any;
 	}
 

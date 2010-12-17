@@ -64,16 +64,6 @@ $config = array(
 	*/
 
 	/*
-	// This authentication source serves as an example of integration with an
-	// external authentication engine. Take a look at the comment in the beginning
-	// of modules/exampleauth/lib/Auth/Source/External.php for a description of
-	// how to adjust it to your own site.
-	'example-external' => array(
-		'exampleauth:External',
-	),
-	*/
-
-	/*
 	'yubikey' => array(
 		'authYubiKey:YubiKey',
  		'id' => '000',
@@ -86,29 +76,6 @@ $config = array(
 		'openid:OpenIDConsumer',
 		'attributes.required' => array('nickname'),
 		'attributes.optional' => array('fullname', 'email',),
-		// 'sreg.validate' => FALSE,
-		'attributes.ax_required' => array('http://axschema.org/namePerson/friendly'),
-		'attributes.ax_optional' => array('http://axschema.org/namePerson','http://axschema.org/contact/email'),
-	),
-	*/
-
-	/*
-	// Example of an authsource that authenticates against Google.
-	// See: http://code.google.com/apis/accounts/docs/OpenID.html
-	'google' => array(
-		'openid:OpenIDConsumer',
-		// Googles OpenID endpoint.
-		'target' => 'https://www.google.com/accounts/o8/id',
-		// Custom realm
-		// 'realm' => 'http://*.example.org',
-		// Attributes that google can supply.
-		'attributes.ax_required' => array(
-			//'http://axschema.org/namePerson/first',
-			//'http://axschema.org/namePerson/last',
-			//'http://axschema.org/contact/email',
-			//'http://axschema.org/contact/country/home',
-			//'http://axschema.org/pref/language',
-		),
 	),
 	*/
 

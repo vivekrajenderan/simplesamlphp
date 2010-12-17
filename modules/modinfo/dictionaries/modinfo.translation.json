@@ -7,13 +7,7 @@
 		"sv": "Tillg\u00e4ngliga moduler",
 		"hr": "Raspolo\u017eivi moduli",
 		"da": "Tilg\u00e6ngelige moduler",
-		"fr": "Modules disponibles",
-		"it": "Moduli disponibili",
-		"es": "M\u00f3dulos disponibles",
-		"lt": "Esami moduliai",
-		"hu": "El\u00e9rhet\u0151 modulok",
-		"nl": "Beschikbare modules",
-		"ja": "\u6709\u52b9\u306a\u30e2\u30b8\u30e5\u30fc\u30eb"
+		"fr": "Modules disponibles"
 	},
 	"modlist_name": {
 		"no": "Navn",
@@ -23,13 +17,7 @@
 		"sv": "Namn",
 		"hr": "Naziv",
 		"da": "Navn",
-		"fr": "Nom",
-		"it": "Nome",
-		"es": "Nombre",
-		"lt": "Pavadinimas",
-		"hu": "N\u00e9v",
-		"nl": "Naam",
-		"ja": "\u540d\u524d"
+		"fr": "Nom"
 	},
 	"modlist_status": {
 		"no": "Status",
@@ -39,13 +27,7 @@
 		"sv": "Status",
 		"hr": "Status",
 		"da": "Status",
-		"fr": "Statut",
-		"it": "Stato",
-		"es": "Estado",
-		"lt": "B\u016bsena",
-		"hu": "\u00c1llapot",
-		"nl": "Status",
-		"ja": "\u30b9\u30c6\u30fc\u30bf\u30b9"
+		"fr": "Statut"
 	},
 	"modlist_enabled": {
 		"no": "P\u00e5sl\u00e5tt",
@@ -55,13 +37,7 @@
 		"sv": "Aktiv",
 		"hr": "Omogu\u0107en",
 		"da": "Sl\u00e5et til",
-		"fr": "Activ\u00e9",
-		"it": "Attivato",
-		"es": "Habilitado",
-		"lt": "Palaikomas",
-		"hu": "Enged\u00e9lyezve",
-		"nl": "Ingeschakeld",
-		"ja": "\u6709\u52b9"
+		"fr": "Activ\u00e9"
 	},
 	"modlist_disabled": {
 		"no": "Avsl\u00e5tt",
@@ -71,12 +47,6 @@
 		"sv": "Ej aktiv",
 		"hr": "Onemogu\u0107en",
 		"da": "Sl\u00e5et fra",
-		"fr": "D\u00e9sactiv\u00e9",
-		"it": "Disattivato",
-		"es": "Deshabilitado",
-		"lt": "Nepalaikomas",
-		"hu": "Tiltva",
-		"nl": "Uitgeschakeld",
-		"ja": "\u7121\u52b9"
+		"fr": "D\u00e9sactiv\u00e9"
 	}
 }

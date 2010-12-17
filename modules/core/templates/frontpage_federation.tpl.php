@@ -63,7 +63,7 @@ foreach ($this->data['metaentries']['hosted'] AS $hm) {
 
 	echo '<br  />[ <a href="' . $hm['metadata-url'] . '">' . $this->t('{core:frontpage:show_metadata}') . '</a> ]';
 	
-	echo '</p></dd>';
+	echo '</dd>';
 }
 echo '</dl>';
 

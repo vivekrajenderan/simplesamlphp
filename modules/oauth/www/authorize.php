@@ -25,9 +25,11 @@ $config = SimpleSAML_Configuration::getInstance();
 $session = SimpleSAML_Session::getInstance();
 
 $as = $oauthconfig->getString('auth');
-$as = new SimpleSAML_Auth_Simple($as);
-$as->requireAuth();
-$attributes = $as->getAttributes();
+if (!$session->isValid($as)) {
+	SimpleSAML_Auth_Default::initLogin($as, SimpleSAML_Utilities::selfURL());
+}
+
+$attributes = $session->getAttributes();
 
 #print_r($attributes);
 

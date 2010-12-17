@@ -16,7 +16,7 @@ $isadmin = SimpleSAML_Utilities::isAdmin();
 
 $warnings = array();
 
-if (!SimpleSAML_Utilities::isHTTPS()) {
+if (SimpleSAML_Utilities::getSelfProtocol() != 'https') {
 	$warnings[] = '{core:frontpage:warnings_https}';
 }
 

@@ -16,33 +16,38 @@
 $config = SimpleSAML_Configuration::getInstance();
 $consentconfig = SimpleSAML_Configuration::getConfig('module_consentSimpleAdmin.php');
 
+// Get session object
+$session = SimpleSAML_Session::getInstance();
+
 $as = $consentconfig->getValue('auth');
-$as = new SimpleSAML_Auth_Simple($as);
-$as->requireAuth();
-
-// Get all attributes
-$attributes = $as->getAttributes();
-
+if (!$session->isValid($as)) {
+	SimpleSAML_Auth_Default::initLogin($as, SimpleSAML_Utilities::selfURL());
+}
 
 
 // Get user ID
 $userid_attributename = $consentconfig->getValue('userid', 'eduPersonPrincipalName');
-if (empty($attributes[$userid_attributename])) {
+$userids = ($session->getAttribute($userid_attributename));
+		
+if (empty($userids)) {
 	throw new Exception('Could not generate useridentifier for storing consent. Attribute [' .
 		$userid_attributename . '] was not available.');
 }
 
-$userid = $attributes[$userid_attributename][0];
+$userid = $userids[0];
 
 // Get metadata storage handler
 $metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
 
+// Get all attributes
+$attributes = $session->getAttributes();
+
 /*
  * Get IdP id and metadata
  */
-if($as->getAuthData('saml:sp:IdP') != null) {
+if($session->getIdP() != null) {
 	// From a remote idp (as bridge)
-	$idp_entityid = $as->getAuthData('saml:sp:IdP');
+	$idp_entityid = $session->getIdP();
 	$idp_metadata = $metadata->getMetaData($idp_entityid, 'saml20-idp-remote');
 } else {
 	// from the local idp

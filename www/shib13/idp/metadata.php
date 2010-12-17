@@ -5,9 +5,10 @@ require_once('../../_include.php');
 /* Load simpleSAMLphp, configuration and metadata */
 $config = SimpleSAML_Configuration::getInstance();
 $metadata = SimpleSAML_Metadata_MetaDataStorageHandler::getMetadataHandler();
+$session = SimpleSAML_Session::getInstance();
 
 if (!$config->getBoolean('enable.shib13-idp', false))
-	throw new SimpleSAML_Error_Error('NOACCESS');
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'NOACCESS');
 
 /* Check if valid local session exists.. */
 if ($config->getBoolean('admin.protectmetadata', false)) {
@@ -20,36 +21,19 @@ try {
 	$idpentityid = isset($_GET['idpentityid']) ? $_GET['idpentityid'] : $metadata->getMetaDataCurrentEntityID('shib13-idp-hosted');
 	$idpmeta = $metadata->getMetaDataConfig($idpentityid, 'shib13-idp-hosted');
 
-	$keys = array();
-	$certInfo = SimpleSAML_Utilities::loadPublicKey($idpmeta, FALSE, 'new_');
-	if ($certInfo !== NULL) {
-		$keys[] = array(
-			'type' => 'X509Certificate',
-			'signing' => TRUE,
-			'encryption' => FALSE,
-			'X509Certificate' => $certInfo['certData'],
-		);
-	}
-
 	$certInfo = SimpleSAML_Utilities::loadPublicKey($idpmeta, TRUE);
-	$keys[] = array(
-		'type' => 'X509Certificate',
-		'signing' => TRUE,
-		'encryption' => FALSE,
-		'X509Certificate' => $certInfo['certData'],
-	);
+	$certFingerprint = $certInfo['certFingerprint'];
+	if (count($certFingerprint) === 1) {
+		/* Only one valid certificate. */
+		$certFingerprint = $certFingerprint[0];
+	}
 
 	$metaArray = array(
 		'metadata-set' => 'shib13-idp-remote',
 		'entityid' => $idpentityid,
 		'SingleSignOnService' => $metadata->getGenerated('SingleSignOnService', 'shib13-idp-hosted'),
+		'certFingerprint' => $certFingerprint,
 	);
-
-	if (count($keys) === 1) {
-		$metaArray['certData'] = $keys[0]['X509Certificate'];
-	} else {
-		$metaArray['keys'] = $keys;
-	}
 
 	$metaArray['NameIDFormat'] = $idpmeta->getString('NameIDFormat', 'urn:mace:shibboleth:1.0:nameIdentifier');
 
@@ -66,6 +50,7 @@ try {
 
 	$metaflat = '$metadata[' . var_export($idpentityid, TRUE) . '] = ' . var_export($metaArray, TRUE) . ';';
 	
+	$metaArray['certData'] = $certInfo['certData'];
 	$metaBuilder = new SimpleSAML_Metadata_SAMLBuilder($idpentityid);
 	$metaBuilder->addMetadataIdP11($metaArray);
 	$metaBuilder->addOrganizationInfo($metaArray);
@@ -106,7 +91,7 @@ try {
 	
 } catch(Exception $exception) {
 	
-	throw new SimpleSAML_Error_Error('METADATA', $exception);
+	SimpleSAML_Utilities::fatalError($session->getTrackID(), 'METADATA', $exception);
 
 }
 
