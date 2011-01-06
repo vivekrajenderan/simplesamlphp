@@ -79,12 +79,6 @@ class SAML2_AuthnRequest extends SAML2_Request {
 	 */
 	private $requestedAuthnContext;
 
-	/**
-	 * Request extensions.
-	 *
-	 * @var array
-	 */
-	private $extensions;
 
 	/**
 	 * Constructor for SAML 2 authentication request messages.
@@ -171,8 +165,6 @@ class SAML2_AuthnRequest extends SAML2_Request {
 			}
 
 		}
-
-		$this->extensions = SAML2_XML_samlp_Extensions::getList($xml);
 	}
 
 
@@ -351,28 +343,6 @@ class SAML2_AuthnRequest extends SAML2_Request {
 		assert('is_array($requestedAuthnContext) || is_null($requestedAuthnContext)');
 
 		$this->requestedAuthnContext = $requestedAuthnContext;
-	}
-
-
-	/**
-	 * Retrieve the Extensions.
-	 *
-	 * @return SAML2_XML_samlp_Extensions.
-	 */
-	public function getExtensions() {
-		return $this->extensions;
-	}
-
-
-	/**
-	 * Set the Extensions.
-	 *
-	 * @param array|NULL $extensions The Extensions.
-	 */
-	public function setExtensions($extensions) {
-		assert('is_array($extensions) || is_null($extensions)');
-
-		$this->extensions = $extensions;
 	}
 
 

@@ -173,7 +173,6 @@ class sspmod_saml_IdP_SAML2 {
 			$forceAuthn = FALSE;
 			$isPassive = FALSE;
 			$consumerURL = NULL;
-			$extensions = NULL;
 
 			SimpleSAML_Logger::info('SAML2.0 - IdP.SSOService: IdP initiated authentication: '. var_export($spEntityId, TRUE));
 
@@ -205,7 +204,6 @@ class sspmod_saml_IdP_SAML2 {
 			$isPassive = $request->getIsPassive();
 			$consumerURL = $request->getAssertionConsumerServiceURL();
 			$protocolBinding = $request->getProtocolBinding();
-			$extensions = $request->getExtensions();
 
 			$nameIdPolicy = $request->getNameIdPolicy();
 			if (isset($nameIdPolicy['Format'])) {
@@ -285,7 +283,6 @@ class sspmod_saml_IdP_SAML2 {
 			'saml:ConsumerURL' => $consumerURL,
 			'saml:Binding' => $protocolBinding,
 			'saml:NameIDFormat' => $nameIDFormat,
-			'saml:Extensions' => $extensions,
 		);
 
 		$idp->handleAuthenticationRequest($state);
