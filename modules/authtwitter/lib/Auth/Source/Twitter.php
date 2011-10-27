@@ -54,7 +54,7 @@ class sspmod_authtwitter_Auth_Source_Twitter extends SimpleSAML_Auth_Source {
 
 
 	/**
-	 * Log-in using Twitter platform
+	 * Log-in using Facebook platform
 	 *
 	 * @param array &$state  Information about the current authentication.
 	 */
@@ -66,23 +66,37 @@ class sspmod_authtwitter_Auth_Source_Twitter extends SimpleSAML_Auth_Source {
 		
 		$stateID = SimpleSAML_Auth_State::saveState($state, self::STAGE_INIT);
 		
+		// SimpleSAML_Logger::debug('facebook auth state id = ' . $stateID);
+		
 		$consumer = new sspmod_oauth_Consumer($this->key, $this->secret);
+
 		// Get the request token
-		$linkback = SimpleSAML_Module::getModuleURL('authtwitter/linkback.php', array('AuthState' => $stateID));
-		$requestToken = $consumer->getRequestToken('https://api.twitter.com/oauth/request_token', array('oauth_callback' => $linkback));
+		$requestToken = $consumer->getRequestToken('http://twitter.com/oauth/request_token');
 		SimpleSAML_Logger::debug("Got a request token from the OAuth service provider [" . 
 			$requestToken->key . "] with the secret [" . $requestToken->secret . "]");
 
-		$state['authtwitter:authdata:requestToken'] = $requestToken;
-		SimpleSAML_Auth_State::saveState($state, self::STAGE_INIT);
+		$oauthState = array(
+			'requestToken' => serialize($requestToken),
+			'stateid' => $stateID,
+		);
+		$session = SimpleSAML_Session::getInstance();
+		$session->setData('oauth', 'oauth', $oauthState);
 
 		// Authorize the request token
-		$consumer->getAuthorizeRequest('https://api.twitter.com/oauth/authenticate', $requestToken);
+		$consumer->getAuthorizeRequest('http://twitter.com/oauth/authenticate', $requestToken);
+
 	}
 	
 	
+	
 	public function finalStep(&$state) {
-		$requestToken = $state['authtwitter:authdata:requestToken'];
+		
+		
+		
+		
+		$requestToken = unserialize($state['requestToken']);
+		
+		#echo '<pre>'; print_r($requestToken); exit;
 		
 		$consumer = new sspmod_oauth_Consumer($this->key, $this->secret);
 		
@@ -90,26 +104,29 @@ class sspmod_authtwitter_Auth_Source_Twitter extends SimpleSAML_Auth_Source {
 			$requestToken->key . "] with the secret [" . $requestToken->secret . "]");
 
 		// Replace the request token with an access token
-		$accessToken = $consumer->getAccessToken('https://api.twitter.com/oauth/access_token', $requestToken);
+		$accessToken = $consumer->getAccessToken('http://twitter.com/oauth/access_token', $requestToken);
 		SimpleSAML_Logger::debug("Got an access token from the OAuth service provider [" . 
 			$accessToken->key . "] with the secret [" . $accessToken->secret . "]");
 			
-		$userdata = $consumer->getUserInfo('https://api.twitter.com/account/verify_credentials.json', $accessToken);
-		
-		if (!isset($userdata['id_str']) || !isset($userdata['screen_name'])) {
-			throw new SimpleSAML_Error_AuthSource($this->authId, 'Authentication error: id_str and screen_name not set.');
-		}
 
+		
+		$userdata = $consumer->getUserInfo('http://twitter.com/account/verify_credentials.json', $accessToken);
+		
 		$attributes = array();
 		foreach($userdata AS $key => $value) {
 			if (is_string($value))
 				$attributes['twitter.' . $key] = array((string)$value);
+			
 		}
 		
-		$attributes['twitter_at_screen_name'] = array('@' . $userdata['screen_name']);
-		$attributes['twitter_screen_n_realm'] = array($userdata['screen_name'] . '@twitter.com');
-		$attributes['twitter_targetedID'] = array('http://twitter.com!' . $userdata['id_str']);
+		if (array_key_exists('screen_name', $userdata) ) {
+			$attributes['twitter_at_screen_name'] = array('@' . $userdata['screen_name']);
+			$attributes['twitter_screen_n_realm'] = array($userdata['screen_name'] . '@twitter.com');
+		}
+		if (array_key_exists('id_str', $userdata) )
+			$attributes['twitter_targetedID'] = array('http://twitter.com!' . $userdata['id_str']);
 			
+		
 		$state['Attributes'] = $attributes;
 	}
 

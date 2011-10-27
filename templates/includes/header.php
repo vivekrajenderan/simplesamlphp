@@ -88,11 +88,6 @@ if(!empty($this->data['htmlinject']['htmlContentHead'])) {
 
 
 
-if ($this->isLanguageRTL()) {
-?>
-	<link rel="stylesheet" type="text/css" href="/<?php echo $this->data['baseurlpath']; ?>resources/default-rtl.css" />
-<?php	
-}
 ?>
 
 	
@@ -165,16 +160,10 @@ if($onLoad !== '') {
 					'pl' => 'Język polski', // Polish
 					'pt' => 'Português', // Portuguese
 					'pt-BR' => 'Português brasileiro', // Portuguese
-					'ru' => 'русский язык', // Russian
-					'et' => 'eesti keel',
 					'tr' => 'Türkçe',
 					'el' => 'ελληνικά',
 					'ja' => '日本語',
 					'zh-tw' => '中文',
-					'ar' => 'العربية', // Arabic
-					'fa' => 'پارسی', // Persian
-					'ur' => 'اردو', // Urdu
-					'he' => 'עִבְרִית', // Hebrew
 		);
 		
 		$textarray = array();

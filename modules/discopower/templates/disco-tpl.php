@@ -149,9 +149,7 @@ if (!empty($faventry)) {
     	
     		$tabs = array_keys( $this->data['idplist']);
     		foreach ($tabs AS $tab) {
-			if(!empty($this->data['idplist'][$tab])) {
-				echo '<li><a href="#' . $tab . '"><span>' . $this->t('{discopower:tabs:' . $tab . '}') . '</span></a></li> ';
-			}
+    			echo '<li><a href="#' . $tab . '"><span>' . $this->t('{discopower:tabs:' . $tab . '}') . '</span></a></li> ';
     		}
     	
     	?>

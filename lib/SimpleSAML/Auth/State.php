@@ -150,13 +150,12 @@ class SimpleSAML_Auth_State {
 	 *
 	 * @param string $id  State identifier (with embedded restart information).
 	 * @param string $stage  The stage the state should have been saved in.
-	 * @param bool $allowMissing  Whether to allow the state to be missing.
-	 * @return array|NULL  State information, or NULL if the state is missing and $allowMissing is TRUE.
+	 * @return array  State information.
 	 */
-	public static function loadState($id, $stage, $allowMissing = FALSE) {
+	public static function loadState($id, $stage) {
 		assert('is_string($id)');
 		assert('is_string($stage)');
-		assert('is_bool($allowMissing)');
+
 		SimpleSAML_Logger::debug('Loading state: ' . var_export($id, TRUE));
 
 		$tmp = explode(':', $id, 2);
@@ -171,10 +170,7 @@ class SimpleSAML_Auth_State {
 		$state = $session->getData('SimpleSAML_Auth_State', $id);
 
 		if ($state === NULL) {
-			/* Could not find saved data. */
-			if ($allowMissing) {
-				return NULL;
-			}
+			/* Could not find saved data. Attempt to restart. */
 
 			if ($restartURL === NULL) {
 				throw new SimpleSAML_Error_NoState();

@@ -17,7 +17,7 @@ class sspmod_saml_Message {
 	 * @param SimpleSAML_Configuration $dstMetadata  The metadata of the recipient.
 	 * @param SAML2_Message $element  The element we should add the data to.
 	 */
-	public static function addSign(SimpleSAML_Configuration $srcMetadata, SimpleSAML_Configuration $dstMetadata = NULL, SAML2_SignedElement $element) {
+	public static function addSign(SimpleSAML_Configuration $srcMetadata, SimpleSAML_Configuration $dstMetadata, SAML2_SignedElement $element) {
 
 		$keyArray = SimpleSAML_Utilities::loadPrivateKey($srcMetadata, TRUE);
 		$certArray = SimpleSAML_Utilities::loadPublicKey($srcMetadata, FALSE);
@@ -160,9 +160,28 @@ class sspmod_saml_Message {
 			$pemCert = self::findCertificate($certFingerprint, $certificates);
 			$pemKeys = array($pemCert);
 		} else {
-			throw new SimpleSAML_Error_Exception(
-				'Missing certificate in metadata for ' .
-				var_export($srcMetadata->getString('entityid'), TRUE));
+			/* Attempt CA validation. */
+			$caFile = $srcMetadata->getString('caFile', NULL);
+			if ($caFile === NULL) {
+				throw new SimpleSAML_Error_Exception(
+					'Missing certificate in metadata for ' .
+					var_export($srcMetadata->getString('entityid'), TRUE));
+			}
+			$caFile = SimpleSAML_Utilities::resolveCert($caFile);
+
+			if (count($certificates) === 0) {
+				/* We need the full certificate in order to check it against the CA file. */
+				SimpleSAML_Logger::debug('No certificate in message when validating with CA.');
+				return FALSE;
+			}
+
+			/* We assume that it is the first certificate that was used to sign the message. */
+			$pemCert = "-----BEGIN CERTIFICATE-----\n" .
+				chunk_split($certificates[0], 64) .
+				"-----END CERTIFICATE-----\n";
+
+			SimpleSAML_Utilities::validateCA($pemCert, $caFile);
+			$pemKeys = array($pemCert);
 		}
 
 		SimpleSAML_Logger::debug('Has ' . count($pemKeys) . ' candidate keys for validation.');

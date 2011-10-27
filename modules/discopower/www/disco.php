@@ -1,5 +1,7 @@
 <?php
 
+require_once('../www/_include.php');
+
 try {
 	$discoHandler = new sspmod_discopower_PowerIdPDisco(array('saml20-idp-remote', 'shib13-idp-remote'), 'poweridpdisco');
 } catch (Exception $exception) {

@@ -10,17 +10,6 @@ $config = array (
 	/**
 	 * Setup the following parameters to match the directory of your installation.
 	 * See the user manual for more details.
-	 *
-	 * Valid format for baseurlpath is:
-	 * [(http|https)://(hostname|fqdn)[:port]]/[path/to/simplesaml/]
-	 * (note that it must end with a '/')
-	 *
-	 * The full url format is useful if your simpleSAMLphp setup is hosted behind
-	 * a reverse proxy. In that case you can specify the external url here.
-	 *
-	 * Please note that simpleSAMLphp will then redirect all queries to the
-	 * external url, no matter where you come from (direct access or via the
-	 * reverse proxy).
 	 */
 	'baseurlpath'           => 'simplesaml/',
 	'certdir'               => 'cert/',
@@ -169,10 +158,6 @@ $config = array (
 	 */
 	'session.datastore.timeout' => (4*60*60), // 4 hours
 	
-	/*
-	 * Option to override the default settings for the session cookie name
-	 */
-	'session.cookie.name' => 'SimpleSAMLSessionID',
 
 	/*
 	 * Expiration time for the session cookie, in seconds.
@@ -214,35 +199,16 @@ $config = array (
 	'session.cookie.secure' => FALSE,
 
 	/*
-	 * Enable secure POST from HTTPS to HTTP.
-	 *
-	 * If you have some SP's on HTTP and IdP is normally on HTTPS, this option
-	 * enables secure POSTing to HTTP endpoint without warning from browser.
-	 *
-	 * For this to work, module.php/core/postredirect.php must be accessible
-	 * also via HTTP on IdP, e.g. if your IdP is on
-	 * https://idp.example.org/ssp/, then
-	 * http://idp.example.org/ssp/module.php/core/postredirect.php must be accessible.
-	 */
-	'enable.http_post' => FALSE,
-
-	/*
 	 * Options to override the default settings for php sessions.
 	 */
 	'session.phpsession.cookiename'  => null,
 	'session.phpsession.savepath'    => null,
 	'session.phpsession.httponly'    => FALSE,
-
+	
 	/*
-	 * Option to override the default settings for the auth token cookie
+	 * Languages available and what language is default
 	 */
-	'session.authtoken.cookiename' => 'SimpleSAMLAuthToken',
-
-	/*
-	 * Languages available, RTL languages, and what language is default
-	 */
-	'language.available'	=> array('en', 'no', 'nn', 'se', 'da', 'de', 'sv', 'fi', 'es', 'fr', 'it', 'nl', 'lb', 'cs', 'sl', 'lt', 'hr', 'hu', 'pl', 'pt', 'pt-BR', 'tr', 'ja', 'zh', 'zh-tw', 'ru', 'et', 'he'),
-	'language.rtl'		=> array('ar','dv','fa','ur','he'),
+	'language.available'	=> array('en', 'no', 'nn', 'se', 'da', 'de', 'sv', 'fi', 'es', 'fr', 'it', 'nl', 'lb', 'cs', 'sl', 'lt', 'hr', 'hu', 'pl', 'pt', 'pt-BR', 'tr', 'ja', 'zh-tw'),
 	'language.default'		=> 'en',
 
 	/*
@@ -383,6 +349,11 @@ $config = array (
 			'class' => 'core:AttributeMap', 'removeurnprefix'
 		),
 		*/
+
+		/* When called without parameters, it will fallback to filter attributes ‹the old way›
+		 * by checking the 'attributes' parameter in metadata on SP hosted and IdP remote.
+		 */
+		50 => 'core:AttributeLimit', 
 
 		/*
 		 * Generate the 'group' attribute populated from other variables, including eduPersonAffiliation.

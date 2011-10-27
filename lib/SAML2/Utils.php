@@ -280,7 +280,7 @@ class SAML2_Utils {
 			array($root),
 			XMLSecurityDSig::SHA1,
 			array('http://www.w3.org/2000/09/xmldsig#enveloped-signature', XMLSecurityDSig::EXC_C14N),
-			array('id_name' => 'ID', 'overwrite' => FALSE)
+			array('id_name' => 'ID')
 			);
 
 		$objXMLSecDSig->sign($key);
@@ -345,13 +345,19 @@ class SAML2_Utils {
 			$encKey = $symmetricKeyInfo->encryptedCtx;
 			$symmetricKeyInfo->key = $inputKey->key;
 
-			$keySize = $symmetricKey->getSymmetricKeySize();
-			if ($keySize === NULL) {
+			$keySizes = array(
+				XMLSecurityKey::TRIPLEDES_CBC => 24,
+				XMLSecurityKey::AES128_CBC => 16,
+				XMLSecurityKey::AES192_CBC => 24,
+				XMLSecurityKey::AES256_CBC => 32,
+			);
+			if (!isset($keySizes[$symmetricKey->type])) {
 				/* To protect against "key oracle" attacks, we need to be able to create a
 				 * symmetric key, and for that we need to know the key size.
 				 */
-				throw new Exception('Unknown key size for encryption algorithm: ' . var_export($symmetricKey->type, TRUE));
+				throw new Exception('Unsupported encryption algorithm: ' . var_export($symmetricKey->type, TRUE));
 			}
+			$keySize = $keySizes[$symmetricKey->type];
 
 			try {
 				$key = $encKey->decryptKey($symmetricKeyInfo);

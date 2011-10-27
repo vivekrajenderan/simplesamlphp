@@ -136,27 +136,24 @@ class SimpleSAML_Auth_LDAP {
 				case ERR_WRONG_PW:// 3 - ExInvalidCredential
 					return new SimpleSAML_Error_InvalidCredential($description, $errNo);
 				case ERR_AS_DATA_INCONSIST:// 4 - ExAsDataInconsist
-					return new SimpleSAML_Error_AuthSource('ldap', $description);
+					return new SimpleSAML_Error_AuthSource($description, $errNo);
 				case ERR_AS_INTERNAL:// 5 - ExAsInternal
-					return new SimpleSAML_Error_AuthSource('ldap', $description);
+					return new SimpleSAML_Error_AuthSource($description, $errNo);
 			}
 		}else{
-			if ($errNo !== 0) {
-				$description .= '; cause: \'' . ldap_error($this->ldap) . '\' (0x' . dechex($errNo) . ')';
-			}
 			switch ($errNo){
 				case 0x20://LDAP_NO_SUCH_OBJECT
-					SimpleSAML_Logger::warning($description);
+					SimpleSAML_Logger::warning($description . '; cause: \'' . ldap_error($this->ldap) . '\' (0x' . dechex($errNo) . ')');
 					return new SimpleSAML_Error_UserNotFound($description, $errNo);
 				case 0x31://LDAP_INVALID_CREDENTIALS
-					SimpleSAML_Logger::info($description);
+					SimpleSAML_Logger::info($description . '; cause: \'' . ldap_error($this->ldap) . '\' (0x' . dechex($errNo) . ')');
 					return new SimpleSAML_Error_InvalidCredential($description, $errNo);
 				case -1://NO_SERVER_CONNECTION
-					SimpleSAML_Logger::error($description);
-					return new SimpleSAML_Error_AuthSource('ldap', $description);
+					SimpleSAML_Logger::error($description . '; cause: \'' . ldap_error($this->ldap) . '\' (0x' . dechex($errNo) . ')');
+					return new SimpleSAML_Error_AuthSource($description, $errNo);
 				default:
-					SimpleSAML_Logger::error($description);
-					return new SimpleSAML_Error_AuthSource('ldap', $description);
+					SimpleSAML_Logger::error($description . '; cause: \'' . ldap_error($this->ldap) . '\' (0x' . dechex($errNo) . ')');
+					return new SimpleSAML_Error_AuthSource($description, $errNo);
 			}
 		}
 	}
