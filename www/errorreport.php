@@ -49,9 +49,6 @@ $message = '<h1>SimpleSAMLphp Error Report</h1>
 <p>URL:</p>
 <pre><a href="' . $data['url'] . '">' . $data['url'] . '</a></pre>
 
-<p>Host:</p>
-<pre>' . htmlspecialchars(php_uname('n')) . '</pre>
-
 <p>Directory:</p>
 <pre>' . dirname(dirname(__FILE__)) . '</pre>
 

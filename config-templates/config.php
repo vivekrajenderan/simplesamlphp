@@ -10,17 +10,6 @@ $config = array (
 	/**
 	 * Setup the following parameters to match the directory of your installation.
 	 * See the user manual for more details.
-	 *
-	 * Valid format for baseurlpath is:
-	 * [(http|https)://(hostname|fqdn)[:port]]/[path/to/simplesaml/]
-	 * (note that it must end with a '/')
-	 *
-	 * The full url format is useful if your simpleSAMLphp setup is hosted behind
-	 * a reverse proxy. In that case you can specify the external url here.
-	 *
-	 * Please note that simpleSAMLphp will then redirect all queries to the
-	 * external url, no matter where you come from (direct access or via the
-	 * reverse proxy).
 	 */
 	'baseurlpath'           => 'simplesaml/',
 	'certdir'               => 'cert/',
@@ -54,7 +43,7 @@ $config = array (
 	 * See docs/simplesamlphp-errorhandling.txt for function code example.
 	 *
 	 * Example:
-	 *   'errors.show_function' => array('sspmod_example_Error_Show', 'show'),
+	 *   'errors.show_function' => 'sspmod_exmaple_Error_Show::show',
 	 */
 
 	/**
@@ -67,7 +56,6 @@ $config = array (
 	 * This password must be kept secret, and modified from the default value 123.
 	 * This password will give access to the installation page of simpleSAMLphp with
 	 * metadata listing and diagnostics pages.
-	 * You can also put a hash here; run "bin/pwgen.php" to generate one.
 	 */
 	'auth.adminpassword'		=> '123',
 	'admin.protectindexpage'	=> false,
@@ -104,18 +92,18 @@ $config = array (
 	 * Logging.
 	 * 
 	 * define the minimum log level to log
-	 *		SimpleSAML_Logger::ERR		No statistics, only errors
-	 *		SimpleSAML_Logger::WARNING	No statistics, only warnings/errors
-	 *		SimpleSAML_Logger::NOTICE	Statistics and errors
-	 *		SimpleSAML_Logger::INFO		Verbose logs
-	 *		SimpleSAML_Logger::DEBUG	Full debug logs - not reccomended for production
+	 *		LOG_ERR				No statistics, only errors
+	 *		LOG_WARNING			No statistics, only warnings/errors
+	 *		LOG_NOTICE			Statistics and errors 
+	 *		LOG_INFO			Verbose logs
+	 *		LOG_DEBUG			Full debug logs - not reccomended for production
 	 * 
 	 * Choose logging handler.
 	 * 
 	 * Options: [syslog,file,errorlog]
 	 * 
 	 */
-	'logging.level'         => SimpleSAML_Logger::NOTICE,
+	'logging.level'         => LOG_NOTICE,
 	'logging.handler'       => 'syslog',
 
 	/*
@@ -170,15 +158,6 @@ $config = array (
 	 */
 	'session.datastore.timeout' => (4*60*60), // 4 hours
 	
-	/*
-	 * Sets the duration, in seconds, auth state should be stored.
-	 */
-	'session.state.timeout' => (60*60), // 1 hour
-
-	/*
-	 * Option to override the default settings for the session cookie name
-	 */
-	'session.cookie.name' => 'SimpleSAMLSessionID',
 
 	/*
 	 * Expiration time for the session cookie, in seconds.
@@ -220,48 +199,17 @@ $config = array (
 	'session.cookie.secure' => FALSE,
 
 	/*
-	 * Enable secure POST from HTTPS to HTTP.
-	 *
-	 * If you have some SP's on HTTP and IdP is normally on HTTPS, this option
-	 * enables secure POSTing to HTTP endpoint without warning from browser.
-	 *
-	 * For this to work, module.php/core/postredirect.php must be accessible
-	 * also via HTTP on IdP, e.g. if your IdP is on
-	 * https://idp.example.org/ssp/, then
-	 * http://idp.example.org/ssp/module.php/core/postredirect.php must be accessible.
-	 */
-	'enable.http_post' => FALSE,
-
-	/*
 	 * Options to override the default settings for php sessions.
 	 */
 	'session.phpsession.cookiename'  => null,
 	'session.phpsession.savepath'    => null,
 	'session.phpsession.httponly'    => FALSE,
-
+	
 	/*
-	 * Option to override the default settings for the auth token cookie
+	 * Languages available and what language is default
 	 */
-	'session.authtoken.cookiename' => 'SimpleSAMLAuthToken',
-
-	/*
-	 * Languages available, RTL languages, and what language is default
-	 */
-	'language.available'	=> array('en', 'no', 'nn', 'se', 'da', 'de', 'sv', 'fi', 'es', 'fr', 'it', 'nl', 'lb', 'cs', 'sl', 'lt', 'hr', 'hu', 'pl', 'pt', 'pt-br', 'tr', 'ja', 'zh', 'zh-tw', 'ru', 'et', 'he'),
-	'language.rtl'		=> array('ar','dv','fa','ur','he'),
+	'language.available'	=> array('en', 'no', 'nn', 'se', 'da', 'de', 'sv', 'fi', 'es', 'fr', 'it', 'nl', 'lb', 'cs', 'sl', 'lt', 'hr', 'hu', 'pl', 'pt', 'pt-BR', 'tr', 'ja', 'zh-tw'),
 	'language.default'		=> 'en',
-
-	/**
-	 * Custom getLanguage function called from SimpleSAML_XHTML_Template::getLanguage().
-	 * Function should return language code of one of the available languages or NULL.
-	 * See SimpleSAML_XHTML_Template::getLanguage() source code for more info.
-	 *
-	 * This option can be used to implement a custom function for determining
-	 * the default language for the user.
-	 *
-	 * Example:
-	 *   'language.get_language_function' => array('sspmod_example_Template', 'getLanguage'),
-	 */
 
 	/*
 	 * Extra dictionary for attribute names.
@@ -392,7 +340,7 @@ $config = array (
  		99 => 'core:LanguageAdaptor',
 	),
 	/*
-	 * Authentication processing filters that will be executed for all SPs
+	 * Authentication processing filters that will be executed for all IdPs
 	 * Both Shibboleth and SAML 2.0
 	 */
 	'authproc.sp' => array(
@@ -401,6 +349,11 @@ $config = array (
 			'class' => 'core:AttributeMap', 'removeurnprefix'
 		),
 		*/
+
+		/* When called without parameters, it will fallback to filter attributes ‹the old way›
+		 * by checking the 'attributes' parameter in metadata on SP hosted and IdP remote.
+		 */
+		50 => 'core:AttributeLimit', 
 
 		/*
 		 * Generate the 'group' attribute populated from other variables, including eduPersonAffiliation.

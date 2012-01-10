@@ -4,6 +4,7 @@ $id = $this->data['id'];
 $type = $this->data['type'];
 $from = $this->data['from'];
 $SPs = $this->data['SPs'];
+$timeout = $this->data['timeout'];
 
 $stateImage = array(
 	'unsupported' => '/' . $this->data['baseurlpath'] . 'resources/icons/silk/delete.png',
@@ -22,18 +23,12 @@ $stateText = array(
 );
 
 $spStatus = array();
-$spTimeout = array();
 $nFailed = 0;
 $nProgress = 0;
 foreach ($SPs as $assocId => $sp) {
 	assert('isset($sp["core:Logout-IFrame:State"])');
 	$state = $sp['core:Logout-IFrame:State'];
 	$spStatus[sha1($assocId)] = $state;
-	if (isset($sp['core:Logout-IFrame:Timeout'])) {
-		$spTimeout[sha1($assocId)] = $sp['core:Logout-IFrame:Timeout'] - time();
-	} else {
-		$spTimeout[sha1($assocId)] = 5;
-	}
 	if ($state === 'failed') {
 		$nFailed += 1;
 	} elseif ($state === 'inprogress') {
@@ -57,8 +52,8 @@ $this->data['head'] .= '
 window.stateImage = ' . json_encode($stateImage) . ';
 window.stateText = ' . json_encode($stateText) . ';
 window.spStatus = ' . json_encode($spStatus) . ';
-window.spTimeout = ' . json_encode($spTimeout) . ';
 window.type = "' . $type . '";
+window.timeoutIn = ' . (string)($timeout - time()) . ';
 window.asyncURL = "logout-iframe.php?id=' . $id . '&type=async";
 </script>';
 

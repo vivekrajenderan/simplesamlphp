@@ -151,7 +151,7 @@ class sspmod_cas_Auth_Source_CAS  extends SimpleSAML_Auth_Source  {
 	 * @param string $service
 	 * @return list username and attributes
 	 */
-	protected function casValidation($ticket, $service){
+	private function casValidation($ticket, $service){
 		switch($this->_validationMethod){
 			case 'validate':
 				return  $this->casValidate($ticket, $service);

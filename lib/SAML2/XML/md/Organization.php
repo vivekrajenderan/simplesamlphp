@@ -56,17 +56,17 @@ class SAML2_XML_md_Organization {
 		$this->Extensions = SAML2_XML_md_Extensions::getList($xml);
 
 
-		$this->OrganizationName = SAML2_Utils::extractLocalizedStrings($xml, SAML2_Const::NS_MD, 'OrganizationName');
+		$this->OrganizationName = SAML2_Utils::extractLocalizedStrings($xml, './saml_metadata:OrganizationName');
 		if (empty($this->OrganizationName)) {
 			$this->OrganizationName = array('invalid' => '');
 		}
 
-		$this->OrganizationDisplayName = SAML2_Utils::extractLocalizedStrings($xml, SAML2_Const::NS_MD, 'OrganizationDisplayName');
+		$this->OrganizationDisplayName = SAML2_Utils::extractLocalizedStrings($xml, './saml_metadata:OrganizationDisplayName');
 		if (empty($this->OrganizationDisplayName)) {
 			$this->OrganizationDisplayName = array('invalid' => '');
 		}
 
-		$this->OrganizationURL = SAML2_Utils::extractLocalizedStrings($xml, SAML2_Const::NS_MD, 'OrganizationURL');
+		$this->OrganizationURL = SAML2_Utils::extractLocalizedStrings($xml, './saml_metadata:OrganizationURL');
 		if (empty($this->OrganizationURL)) {
 			$this->OrganizationURL = array('invalid' => '');
 		}
