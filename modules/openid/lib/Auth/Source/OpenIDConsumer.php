@@ -62,11 +62,6 @@ class sspmod_openid_Auth_Source_OpenIDConsumer extends SimpleSAML_Auth_Source {
 	private $extensionArgs;
 
 	/**
-	 * Prefer HTTP Redirect over HTML Form Redirection (POST)
-	 */
-	private $preferHttpRedirect;
-
-	/**
 	 * Constructor for this authentication source.
 	 *
 	 * @param array $info  Information about this authentication source.
@@ -92,8 +87,6 @@ class sspmod_openid_Auth_Source_OpenIDConsumer extends SimpleSAML_Auth_Source {
 		$this->validateSReg = $cfgParse->getBoolean('sreg.validate',TRUE);
 
 		$this->extensionArgs = $cfgParse->getArray('extension.args', array());
-
-		$this->preferHttpRedirect = $cfgParse->getBoolean('prefer_http_redirect', FALSE);
 	}
 
 
@@ -109,14 +102,10 @@ class sspmod_openid_Auth_Source_OpenIDConsumer extends SimpleSAML_Auth_Source {
 		$state['openid:AuthId'] = $this->authId;
 
 		if ($this->target !== NULL) {
-			/* We know our OpenID target URL. Skip the page where we ask for it. */
 			$this->doAuth($state, $this->target);
-
-			/* doAuth() never returns. */
-			assert('FALSE');
 		}
 
-		$id = SimpleSAML_Auth_State::saveState($state, 'openid:init');
+		$id = SimpleSAML_Auth_State::saveState($state, 'openid:state');
 
 		$url = SimpleSAML_Module::getModuleURL('openid/consumer.php');
 		SimpleSAML_Utilities::redirect($url, array('AuthState' => $id));
@@ -144,7 +133,8 @@ class sspmod_openid_Auth_Source_OpenIDConsumer extends SimpleSAML_Auth_Source {
 	private function getReturnTo($stateId) {
 		assert('is_string($stateId)');
 
-		return SimpleSAML_Module::getModuleURL('openid/linkback.php', array(
+		return SimpleSAML_Module::getModuleURL('openid/consumer.php', array(
+			'returned' => 1,
 			'AuthState' => $stateId,
 		));
 	}
@@ -173,7 +163,7 @@ class sspmod_openid_Auth_Source_OpenIDConsumer extends SimpleSAML_Auth_Source {
 	public function doAuth(array &$state, $openid) {
 		assert('is_string($openid)');
 
-		$stateId = SimpleSAML_Auth_State::saveState($state, 'openid:auth');
+		$stateId = SimpleSAML_Auth_State::saveState($state, 'openid:state');
 
 		$consumer = $this->getConsumer($state);
 
@@ -182,7 +172,7 @@ class sspmod_openid_Auth_Source_OpenIDConsumer extends SimpleSAML_Auth_Source {
 
 		// No auth request means we can't begin OpenID.
 		if (!$auth_request) {
-			throw new SimpleSAML_Error_BadRequest('Not a valid OpenID: ' . var_export($openid, TRUE));
+			throw new Exception("Authentication error; not a valid OpenID.");
 		}
 
 		$sreg_request = Auth_OpenID_SRegRequest::build(
@@ -232,38 +222,31 @@ class sspmod_openid_Auth_Source_OpenIDConsumer extends SimpleSAML_Auth_Source {
 		// Store the token for this authentication so we can verify the
 		// response.
 
-		// For OpenID 1, send a redirect.  For OpenID 2, use a Javascript form
-		// to send a POST request to the server or use redirect if
-		// prefer_http_redirect is enabled and redirect URL size
-		// is less than 2049
-		$should_send_redirect = $auth_request->shouldSendRedirect();
-		if ($this->preferHttpRedirect || $should_send_redirect) {
+		// For OpenID 1, send a redirect.  For OpenID 2, use a Javascript
+		// form to send a POST request to the server.
+		if ($auth_request->shouldSendRedirect()) {
 			$redirect_url = $auth_request->redirectURL($this->getTrustRoot(), $this->getReturnTo($stateId));
 
 			// If the redirect URL can't be built, display an error message.
 			if (Auth_OpenID::isFailure($redirect_url)) {
-				throw new SimpleSAML_Error_AuthSource($this->authId, 'Could not redirect to server: ' . var_export($redirect_url->message, TRUE));
+				throw new Exception("Could not redirect to server: " . $redirect_url->message);
 			}
 
-			// For OpenID 2 failover to POST if redirect URL is longer than 2048
-			if ($should_send_redirect || strlen($redirect_url) <= 2048) {
-				SimpleSAML_Utilities::redirect($redirect_url);
-				assert('FALSE');
-			}
-		}
-
-		// Generate form markup and render it.
-		$form_id = 'openid_message';
-		$form_html = $auth_request->formMarkup($this->getTrustRoot(), $this->getReturnTo($stateId), FALSE, array('id' => $form_id));
-
-		// Display an error if the form markup couldn't be generated; otherwise, render the HTML.
-		if (Auth_OpenID::isFailure($form_html)) {
-			throw new SimpleSAML_Error_AuthSource($this->authId, 'Could not redirect to server: ' . var_export($form_html->message, TRUE));
+			SimpleSAML_Utilities::redirect($redirect_url);
 		} else {
-			echo '<html><head><title>OpenID transaction in progress</title></head>
-				<body onload=\'document.getElementById("' . $form_id . '").submit()\'>' .
-				$form_html . '</body></html>';
-			exit;
+			// Generate form markup and render it.
+			$form_id = 'openid_message';
+			$form_html = $auth_request->formMarkup($this->getTrustRoot(), $this->getReturnTo($stateId), FALSE, array('id' => $form_id));
+
+			// Display an error if the form markup couldn't be generated; otherwise, render the HTML.
+			if (Auth_OpenID::isFailure($form_html)) {
+				throw new Exception("Could not redirect to server: " . $form_html->message);
+			} else {
+				echo '<html><head><title>OpenID transaction in progress</title></head>
+					<body onload=\'document.getElementById("' . $form_id . '").submit()\'>' .
+					$form_html . '</body></html>';
+				exit;
+			}
 		}
 	}
 
@@ -286,12 +269,12 @@ class sspmod_openid_Auth_Source_OpenIDConsumer extends SimpleSAML_Auth_Source {
 		// Check the response status.
 		if ($response->status == Auth_OpenID_CANCEL) {
 			// This means the authentication was cancelled.
-			throw new SimpleSAML_Error_UserAborted();
+			throw new Exception('Verification cancelled.');
 		} else if ($response->status == Auth_OpenID_FAILURE) {
 			// Authentication failed; display the error message.
-			throw new SimpleSAML_Error_AuthSource($this->authId, 'Authentication failed: ' . var_export($response->message, TRUE));
+			throw new Exception("OpenID authentication failed: " . $response->message);
 		} else if ($response->status != Auth_OpenID_SUCCESS) {
-			throw new SimpleSAML_Error_AuthSource($this->authId, 'General error. Try again.');
+			throw new Exceptioon('General error. Try again.');
 		}
 
 		// This means the authentication succeeded; extract the

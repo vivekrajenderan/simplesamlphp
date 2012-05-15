@@ -3,7 +3,7 @@
 /**
  * Class which represents the Scope element found in Shibboleth metadata.
  *
- * @link https://wiki.shibboleth.net/confluence/display/SHIB/ShibbolethMetadataProfile
+ * @link https://spaces.internet2.edu/display/SHIB/ShibbolethMetadataProfile
  * @package simpleSAMLphp
  * @version $Id$
  */

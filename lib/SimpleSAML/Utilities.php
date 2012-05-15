@@ -33,21 +33,7 @@ class SimpleSAML_Utilities {
 	 * Will return sp.example.org
 	 */
 	public static function getSelfHost() {
-
-		$url = self::getBaseURL();
-
-		$start = strpos($url,'://') + 3;
-		$length = strcspn($url,'/:',$start);
-
-		return substr($url, $start, $length);
-
-	}
 	
-	/**
-	 * Retrieve Host value from $_SERVER environment variables
-	 */
-	private static function getServerHost() {
-
 		if (array_key_exists('HTTP_HOST', $_SERVER)) {
 			$currenthost = $_SERVER['HTTP_HOST'];
 		} elseif (array_key_exists('SERVER_NAME', $_SERVER)) {
@@ -61,24 +47,35 @@ class SimpleSAML_Utilities {
 				$currenthostdecomposed = explode(":", $currenthost);
 				$currenthost = $currenthostdecomposed[0];
 		}
-		return $currenthost;
-
+		return $currenthost;# . self::getFirstPathElement() ;
 	}
 
 
 	/**
-	 * Will return https://sp.example.org[:PORT]
+	 * Will return https://sp.example.org
 	 */
 	public static function selfURLhost() {
+	
+		$currenthost = self::getSelfHost();
 
-		$url = self::getBaseURL();
-
-		$start = strpos($url,'://') + 3;
-		$length = strcspn($url,'/',$start) + $start;
-
-		return substr($url, 0, $length);
+		if (SimpleSAML_Utilities::isHTTPS()) {
+			$protocol = 'https';
+		} else {
+			$protocol = 'http';
+		}
+		
+		$portnumber = $_SERVER["SERVER_PORT"];
+		$port = ':' . $portnumber;
+		if ($protocol == 'http') {
+			if ($portnumber == '80') $port = '';
+		} elseif ($protocol == 'https') {
+			if ($portnumber == '443') $port = '';
+		}
+			
+		$querystring = '';
+		return $protocol."://" . $currenthost . $port;
+	
 	}
-
 	
 	/**
 	 * This function checks if we should set a secure cookie.
@@ -87,26 +84,8 @@ class SimpleSAML_Utilities {
 	 */
 	public static function isHTTPS() {
 
-		$url = self::getBaseURL();
-
-		$end = strpos($url,'://');
-		$protocol = substr($url, 0, $end);
-
-		if ($protocol === 'https') {
-			return TRUE;
-		} else {
-			return FALSE;
-		}
-
-	}
-
-	/**
-	 * retrieve HTTPS status from $_SERVER environment variables
-	 */
-	private static function getServerHTTPS() {
-
 		if(!array_key_exists('HTTPS', $_SERVER)) {
-			/* Not an https-request. */
+			/* Not a https-request. */
 			return FALSE;
 		}
 
@@ -117,34 +96,8 @@ class SimpleSAML_Utilities {
 
 		/* Otherwise, HTTPS will be a non-empty string. */
 		return $_SERVER['HTTPS'] !== '';
-
 	}
-
-
-	/**
-	 * Retrieve port number from $_SERVER environment variables
-	 * return it as a string such as ":80" if different from
-	 * protocol default port, otherwise returns an empty string
-	 */
-	private static function getServerPort() {
-
-		if (isset($_SERVER["SERVER_PORT"])) {
-			$portnumber = $_SERVER["SERVER_PORT"];
-		} else {
-			$portnumber = 80;
-		}
-		$port = ':' . $portnumber;
-
-		if (self::getServerHTTPS()) {
-			if ($portnumber == '443') $port = '';
-		} else {
-			if ($portnumber == '80') $port = '';
-		}
-
-		return $port;
-
-	}
-
+	
 	/**
 	 * Will return https://sp.example.org/universities/ruc/baz/simplesaml/saml2/SSOService.php
 	 */
@@ -161,18 +114,16 @@ class SimpleSAML_Utilities {
 
 
 	/**
-	 * Will return sp.example.org/ssp/sp1
-	 *
-	 * Please note this function will return the base URL for the current
-	 * SP, as defined in the global configuration.
+	 * Will return sp.example.org/foo
 	 */
 	public static function getSelfHostWithPath() {
 	
-		$baseurl = explode("/", self::getBaseURL());
-		$elements = array_slice($baseurl, 3 - count($baseurl), count($baseurl) - 4);
-		$path = implode("/", $elements);
 		$selfhostwithpath = self::getSelfHost();
-		return $selfhostwithpath . "/" . $path;
+		if (preg_match('|^(/.*?)/|', $_SERVER['SCRIPT_NAME'], $matches)) {
+			$selfhostwithpath .= $matches[1];
+		}
+		return $selfhostwithpath;
+	
 	}
 	
 	/**
@@ -188,7 +139,6 @@ class SimpleSAML_Utilities {
 	
 
 	public static function selfURL() {
-
 		$selfURLhost = self::selfURLhost();
 
 		$requestURI = $_SERVER['REQUEST_URI'];
@@ -200,14 +150,14 @@ class SimpleSAML_Utilities {
 		}
 
 		return $selfURLhost . $requestURI;
-
 	}
 
 
 	/**
-	 * Retrieve and return the absolute base URL for the simpleSAMLphp installation.
+	 * Retrieve the absolute base URL for the simpleSAMLphp installation.
 	 *
-	 * For example: https://idp.example.org/simplesaml/
+	 * This function will return the absolute base URL for the simpleSAMLphp
+	 * installation. For example: https://idp.example.org/simplesaml/
 	 *
 	 * The URL will always end with a '/'.
 	 *
@@ -216,35 +166,13 @@ class SimpleSAML_Utilities {
 	public static function getBaseURL() {
 
 		$globalConfig = SimpleSAML_Configuration::getInstance();
-		$baseURL = $globalConfig->getString('baseurlpath', 'simplesaml/');
-		
-		if (preg_match('#^https?://.*/$#D', $baseURL, $matches)) {
-			/* full url in baseurlpath, override local server values */
-			return $baseURL;
-		} elseif (
-			(preg_match('#^/?([^/]?.*/)$#D', $baseURL, $matches)) ||
-			(preg_match('#^\*(.*)/$#D', $baseURL, $matches)) ||
-			($baseURL === '')) {
-			/* get server values */
-
-			if (self::getServerHTTPS()) {
-				$protocol = 'https://';
-			} else {
-				$protocol = 'http://';
-			}
-
-			$hostname = self::getServerHost();
-			$port = self::getServerPort();
-			$path = '/' . $globalConfig->getBaseURL();
-
-			return $protocol.$hostname.$port.$path;
-		} else {
-			throw new SimpleSAML_Error_Exception('Invalid value of \'baseurl\' in '.
-				'config.php. Valid format is in the form: '.
-				'[(http|https)://(hostname|fqdn)[:port]]/[path/to/simplesaml/]. '.
-				'It must end with a \'/\'.');
+		$ret = SimpleSAML_Utilities::selfURLhost() . '/' . $globalConfig->getBaseURL();
+		if (substr($ret, -1) !== '/') {
+			throw new SimpleSAML_Error_Exception('Invalid value of \'baseurl\' in ' .
+				'config.php. It must end with a \'/\'.');
 		}
 
+		return $ret;
 	}
 
 
@@ -395,7 +323,7 @@ class SimpleSAML_Utilities {
 		assert('is_null($timestamp) || is_int($timestamp)');
 
 		/* Parse the duration. We use a very strict pattern. */
-		$durationRegEx = '#^(-?)P(?:(?:(?:(\\d+)Y)?(?:(\\d+)M)?(?:(\\d+)D)?(?:T(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)(?:[.,]\d+)?S)?)?)|(?:(\\d+)W))$#D';
+		$durationRegEx = '#^(-?)P(?:(?:(?:(\\d+)Y)?(?:(\\d+)M)?(?:(\\d+)D)?(?:T(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?)?)|(?:(\\d+)W))$#D';
 		if (!preg_match($durationRegEx, $duration, $matches)) {
 			throw new Exception('Invalid ISO 8601 duration: ' . $duration);
 		}
@@ -492,50 +420,15 @@ class SimpleSAML_Utilities {
 	static function ipCIDRcheck($cidr, $ip = null) {
 		if ($ip == null) $ip = $_SERVER['REMOTE_ADDR'];
 		list ($net, $mask) = explode('/', $cidr);
-
-		if (strstr($ip, ':') || strstr($net, ':')) {
-			// Validate IPv6 with inet_pton, convert to hex with bin2hex
-			// then store as a long with hexdec
-
-			$ip_pack = inet_pton($ip);
-			$net_pack = inet_pton($net);
-
-			if ($ip_pack === false || $net_pack === false) {
-				// not valid IPv6 address (warning already issued)
-				return false;
-			}
-
-			$ip_ip = str_split(bin2hex($ip_pack),8);
-			foreach ($ip_ip as &$value) {
-				$value = hexdec($value);
-			}
-
-			$ip_net = str_split(bin2hex($net_pack),8);
-			foreach ($ip_net as &$value) {
-				$value = hexdec($value);
-			}
-		} else {
-			$ip_ip[0] = ip2long ($ip);
-			$ip_net[0] = ip2long ($net);
-		}
-
-		for($i = 0; $mask > 0 && $i < sizeof($ip_ip); $i++) {
-			if ($mask > 32) {
-				$iteration_mask = 32;
-			} else {
-				$iteration_mask = $mask;
-			}
-			$mask -= 32;
-
-			$ip_mask = ~((1 << (32 - $iteration_mask)) - 1);
-
-			$ip_net_mask = $ip_net[$i] & $ip_mask;
-			$ip_ip_mask = $ip_ip[$i] & $ip_mask;
-
-			if ($ip_ip_mask != $ip_net_mask)
-				return false;
-		}
-		return true;
+		
+		$ip_net = ip2long ($net);
+		$ip_mask = ~((1 << (32 - $mask)) - 1);
+		
+		$ip_ip = ip2long ($ip);
+		
+		$ip_ip_net = $ip_ip & $ip_mask;
+		
+		return ($ip_ip_net == $ip_net);
 	}
 
 
@@ -839,7 +732,7 @@ class SimpleSAML_Utilities {
 			return array();
 		}
 
-		$languages = explode(',', strtolower($_SERVER['HTTP_ACCEPT_LANGUAGE']));
+		$languages = explode(',', $_SERVER['HTTP_ACCEPT_LANGUAGE']);
 
 		$ret = array();
 
@@ -1011,10 +904,6 @@ class SimpleSAML_Utilities {
 	public static function generateRandomBytes($length, $fallback = TRUE) {
 		static $fp = NULL;
 		assert('is_int($length)');
-
-		if (function_exists('openssl_random_pseudo_bytes')) {
-			return openssl_random_pseudo_bytes($length);
-		}
 
 		if($fp === NULL) {
 			if (@file_exists('/dev/urandom')) {
@@ -1315,7 +1204,7 @@ class SimpleSAML_Utilities {
 	/**
 	 * Retrieve last error message.
 	 *
-	 * This function retrieves the last error message. If no error has occurred,
+	 * This function retrieves the last error message. If no error has occured,
 	 * '[No error message found]' will be returned. If the required function isn't available,
 	 * '[Cannot get error message]' will be returned.
 	 *
@@ -1674,13 +1563,6 @@ class SimpleSAML_Utilities {
 		assert('is_array($post)');
 
 		$config = SimpleSAML_Configuration::getInstance();
-		$httpRedirect = $config->getBoolean('enable.http_post', FALSE);
-
-		if ($httpRedirect && preg_match("#^http:#", $destination) && self::isHTTPS()) {
-			$url = self::createHttpPostRedirectLink($destination, $post);
-			self::redirect($url);
-			assert('FALSE');
-		}
 
 		$p = new SimpleSAML_XHTML_Template($config, 'post.php');
 		$p->data['destination'] = $destination;
@@ -1700,54 +1582,16 @@ class SimpleSAML_Utilities {
 		assert('is_string($destination)');
 		assert('is_array($post)');
 
-		$config = SimpleSAML_Configuration::getInstance();
-		$httpRedirect = $config->getBoolean('enable.http_post', FALSE);
-
-		if ($httpRedirect && preg_match("#^http:#", $destination) && self::isHTTPS()) {
-			$url = self::createHttpPostRedirectLink($destination, $post);
-		} else {
-			$postId = SimpleSAML_Utilities::generateID();
-			$postData = array(
-				'post' => $post,
-				'url' => $destination,
-			);
-
-			$session = SimpleSAML_Session::getInstance();
-			$session->setData('core_postdatalink', $postId, $postData);
-
-			$url = SimpleSAML_Module::getModuleURL('core/postredirect.php', array('RedirId' => $postId));
-		}
-
-		return $url;
-	}
-
-
-	/**
-	 * Create a link which will POST data to HTTP in a secure way.
-	 *
-	 * @param string $destination  The destination URL.
-	 * @param array $post  The name-value pairs which will be posted to the destination.
-	 * @return string  An URL which can be accessed to post the data.
-	 */
-	public static function createHttpPostRedirectLink($destination, $post) {
-		assert('is_string($destination)');
-		assert('is_array($post)');
-
-		$postId = SimpleSAML_Utilities::generateID();
+		$id = SimpleSAML_Utilities::generateID();
 		$postData = array(
 			'post' => $post,
 			'url' => $destination,
 		);
 
 		$session = SimpleSAML_Session::getInstance();
-		$session->setData('core_postdatalink', $postId, $postData);
+		$session->setData('core_postdatalink', $id, $postData);
 
-		$redirInfo = base64_encode(self::aesEncrypt($session->getSessionId() . ':' . $postId));
-
-		$url = SimpleSAML_Module::getModuleURL('core/postredirect.php', array('RedirInfo' => $redirInfo));
-		$url = preg_replace("#^https:#", "http:", $url);
-
-		return $url;
+		return SimpleSAML_Module::getModuleURL('core/postredirect.php', array('RedirId' => $id));
 	}
 
 
@@ -1941,15 +1785,6 @@ class SimpleSAML_Utilities {
 		if ($res === FALSE) {
 			throw new SimpleSAML_Error_Exception('Error saving file ' . $tmpFile .
 				': ' . SimpleSAML_Utilities::getLastError());
-		}
-
-		if (!self::isWindowsOS()) {
-			$res = chmod($tmpFile, 0600);
-			if ($res === FALSE) {
-				unlink($tmpFile);
-				throw new SimpleSAML_Error_Exception('Error changing file mode ' . $tmpFile .
-					': ' . SimpleSAML_Utilities::getLastError());
-			}
 		}
 
 		$res = rename($tmpFile, $filename);
@@ -2155,10 +1990,9 @@ class SimpleSAML_Utilities {
 	 *
 	 * @param string $path  The path or URL we should fetch.
 	 * @param array $context  Extra context options. This parameter is optional.
-	 * @param boolean $getHeaders Whether to also return response headers. Optional.
-	 * @return mixed array if $getHeaders is set, string otherwise
+	 * @return string  The data we fetched.
 	 */
-	public static function fetch($path, $context = array(), $getHeaders = FALSE) {
+	public static function fetch($path, $context = array()) {
 		assert('is_string($path)');
 
 		$config = SimpleSAML_Configuration::getInstance();
@@ -2180,112 +2014,7 @@ class SimpleSAML_Utilities {
 			throw new SimpleSAML_Error_Exception('Error fetching ' . var_export($path, TRUE) . ':' . self::getLastError());
 		}
 
-		// Data and headers.
-		if ($getHeaders) {
-
-			if (isset($http_response_header)) {
-				$headers = array();
-				foreach($http_response_header as $h) {
-					if(preg_match('@^HTTP/1\.[01]\s+\d{3}\s+@', $h)) {
-						$headers = array(); // reset
-						$headers[0] = $h;
-						continue;
-					}
-					$bits = explode(':', $h, 2);
-					if(count($bits) === 2) {
-						$headers[strtolower($bits[0])] = trim($bits[1]);
-					}
-				}
-			} else {
-				/* No HTTP headers - probably a different protocol, e.g. file. */
-				$headers = NULL;
-			}
-
-			return array($data, $headers);
-		}
-
 		return $data;
-	}
-
-
-	/**
-	 * Function to AES encrypt data.
-	 *
-	 * @param string $clear  Data to encrypt.
-	 * @return array  The encrypted data and IV.
-	 */
-	public static function aesEncrypt($clear) {
-		assert('is_string($clear)');
-
-		if (!function_exists("mcrypt_encrypt")) {
-			throw new Exception("aesEncrypt needs mcrypt php module.");
-		}
-
-		$enc = MCRYPT_RIJNDAEL_256;
-		$mode = MCRYPT_MODE_CBC;
-
-		$blockSize = mcrypt_get_block_size($enc, $mode);
-		$ivSize = mcrypt_get_iv_size($enc, $mode);
-		$keySize = mcrypt_get_key_size($enc, $mode);
-
-		$key = hash('sha256', self::getSecretSalt(), TRUE);
-		$key = substr($key, 0, $keySize);
-
-		$len = strlen($clear);
-		$numpad = $blockSize - ($len % $blockSize);
-		$clear = str_pad($clear, $len + $numpad, chr($numpad));
-
-		$iv = self::generateRandomBytes($ivSize);
-
-		$data = mcrypt_encrypt($enc, $key, $clear, $mode, $iv);
-
-		return $iv . $data;
-	}
-
-
-	/**
-	 * Function to AES decrypt data.
-	 *
-	 * @param $data  Encrypted data.
-	 * @param $iv  IV of encrypted data.
-	 * @return string  The decrypted data.
-	 */
-	public static function aesDecrypt($encData) {
-		assert('is_string($encData)');
-
-		if (!function_exists("mcrypt_encrypt")) {
-			throw new Exception("aesDecrypt needs mcrypt php module.");
-		}
-
-		$enc = MCRYPT_RIJNDAEL_256;
-		$mode = MCRYPT_MODE_CBC;
-
-		$ivSize = mcrypt_get_iv_size($enc, $mode);
-		$keySize = mcrypt_get_key_size($enc, $mode);
-
-		$key = hash('sha256', self::getSecretSalt(), TRUE);
-		$key = substr($key, 0, $keySize);
-
-		$iv = substr($encData, 0, $ivSize);
-		$data = substr($encData, $ivSize);
-
-		$clear = mcrypt_decrypt($enc, $key, $data, $mode, $iv);
-
-		$len = strlen($clear);
-		$numpad = ord($clear[$len - 1]);
-		$clear = substr($clear, 0, $len - $numpad);
-
-		return $clear;
-	}
-
-
-	/**
-	 * This function checks if we are running on Windows OS.
-	 *
-	 * @return TRUE if we are on Windows OS, FALSE otherwise.
-	 */
-	public static function isWindowsOS() {
-		return substr(strtoupper(PHP_OS),0,3) == 'WIN';
 	}
 
 }

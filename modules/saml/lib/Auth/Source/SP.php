@@ -58,10 +58,6 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 		$this->entityId = $this->metadata->getString('entityID');
 		$this->idp = $this->metadata->getString('idp', NULL);
 		$this->discoURL = $this->metadata->getString('discoURL', NULL);
-		
-		if (empty($this->discoURL) && SimpleSAML_Module::isModuleEnabled('discojuice')) {
-			$this->discoURL = SimpleSAML_Module::getModuleURL('discojuice/central.php');
-		}
 	}
 
 
@@ -248,10 +244,6 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 		
 		$ar->setRequesterID($requesterID);
 		
-		if (isset($state['saml:Extensions'])) {
-			$ar->setExtensions($state['saml:Extensions']);
-		}
-
 		$id = SimpleSAML_Auth_State::saveState($state, 'saml:sp:sso', TRUE);
 		$ar->setId($id);
 
@@ -502,13 +494,13 @@ class sspmod_saml_Auth_Source_SP extends SimpleSAML_Auth_Source {
 
 		$state['Attributes'] = $authProcState['Attributes'];
 
-		if (isset($state['saml:sp:isUnsolicited']) && (bool)$state['saml:sp:isUnsolicited']) {
+		if (isset($state['saml:sp:isUnsoliced']) && (bool)$state['saml:sp:isUnsoliced']) {
 			if (!empty($state['saml:sp:RelayState'])) {
 				$redirectTo = $state['saml:sp:RelayState'];
 			} else {
 				$redirectTo = $source->getMetadata()->getString('RelayState', '/');
 			}
-			SimpleSAML_Auth_Default::handleUnsolicitedAuth($sourceId, $state, $redirectTo);
+			SimpleSAML_Auth_Default::handleUnsolicedAuth($sourceId, $state, $redirectTo);
 		}
 
 		SimpleSAML_Auth_Source::completeAuth($state);

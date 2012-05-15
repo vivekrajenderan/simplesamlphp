@@ -50,33 +50,25 @@ class SimpleSAML_Logger {
 	 *		LOG_DEBUG			Full debug logs - not reccomended for production
 
 */
-	const EMERG = 0;
-	const ALERT = 1;
-	const CRIT = 2;
-	const ERR = 3;
-	const WARNING = 4;
-	const NOTICE = 5;
-	const INFO = 6;
-	const DEBUG = 7;
 
 	static function emergency($string) {
-		self::log_internal(self::EMERG,$string);
+		self::log_internal(LOG_EMERG,$string);
 	}
 
 	static function critical($string) {
-		self::log_internal(self::CRIT,$string);
+		self::log_internal(LOG_CRIT,$string);
 	}
 
 	static function alert($string) {
-		self::log_internal(self::ALERT,$string);
+		self::log_internal(LOG_ALERT,$string);
 	}
 
 	static function error($string) {
-		self::log_internal(self::ERR,$string);
+		self::log_internal(LOG_ERR,$string);
 	}
 
 	static function warning($string) {
-		self::log_internal(self::WARNING,$string);
+		self::log_internal(LOG_WARNING,$string);
 	}
 
 	/**
@@ -84,7 +76,7 @@ class SimpleSAML_Logger {
 	 * this level for other kind of log messages.
 	 */
 	static function notice($string) {
-		self::log_internal(self::NOTICE,$string);
+		self::log_internal(LOG_NOTICE,$string);
 	}
 
 	/**
@@ -92,7 +84,7 @@ class SimpleSAML_Logger {
 	 * for tracing a session. 
 	 */
 	static function info($string) {
-		self::log_internal(self::INFO,$string);
+		self::log_internal(LOG_INFO,$string);
 	}
 	
 	/**
@@ -100,14 +92,14 @@ class SimpleSAML_Logger {
 	 * what is neccessary for a production system.
 	 */
 	static function debug($string) {
-		self::log_internal(self::DEBUG,$string);
+		self::log_internal(LOG_DEBUG,$string);
 	}
 
 	/**
 	 * Statisitics
 	 */
 	static function stats($string) {
-		self::log_internal(self::NOTICE,$string,true);
+		self::log_internal(LOG_NOTICE,$string,true);
 	}
 	
 	
@@ -127,7 +119,7 @@ class SimpleSAML_Logger {
 		/*
 		 * setting minimum log_level
 		 */
-		self::$logLevel = $config->getInteger('logging.level',self::INFO);
+		self::$logLevel = $config->getInteger('logging.level',LOG_INFO);
 
 		$handler = strtolower($handler);
 
@@ -167,7 +159,7 @@ class SimpleSAML_Logger {
 			}
 
 		} elseif (self::$loggingHandler === FALSE) {
-			/* Some error occurred while initializing logging. */
+			/* Some error occured while initializing logging. */
 			if (empty(self::$earlyLog)) {
 				/* This is the first message. */
 				error_log('--- Log message(s) while initializing logging ------------------------');

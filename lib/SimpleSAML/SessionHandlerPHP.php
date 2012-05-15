@@ -49,6 +49,18 @@ class SimpleSAML_SessionHandlerPHP extends SimpleSAML_SessionHandler {
 			if(!empty($savepath)) {
 				session_save_path($savepath);
 			}
+
+			if(!array_key_exists(session_name(), $_COOKIE)) {
+
+				if (headers_sent()) {
+					throw new SimpleSAML_Error_Exception('Cannot create new session - headers already sent.');
+				}
+
+				/* Session cookie unset - session id not set. Generate new (secure) session id. */
+				session_id(SimpleSAML_Utilities::stringToHex(SimpleSAML_Utilities::generateRandomBytes(16)));
+			}
+			
+			session_start();
 		}
 	}
 
@@ -59,28 +71,6 @@ class SimpleSAML_SessionHandlerPHP extends SimpleSAML_SessionHandler {
 	 * @return string  The session id saved in the cookie.
 	 */
 	public function getCookieSessionId() {
-		if(session_id() === '') {
-			$session_cookie_params = session_get_cookie_params();
-
-			if ($session_cookie_params['secure'] && !SimpleSAML_Utilities::isHTTPS()) {
-				throw new SimpleSAML_Error_Exception('Session start with secure cookie not allowed on http.');
-			}
-
-			if(!self::hasSessionCookie()) {
-
-				if (headers_sent()) {
-					throw new SimpleSAML_Error_Exception('Cannot create new session - headers already sent.');
-				}
-
-				/* Session cookie unset - session id not set. Generate new (secure) session id. */
-				$sessionId = SimpleSAML_Utilities::stringToHex(SimpleSAML_Utilities::generateRandomBytes(16));
-				SimpleSAML_Session::createSession($sessionId);
-				session_id($sessionId);
-			}
-			
-			session_start();
-		}
-
 		return session_id();
 	}
 
@@ -105,21 +95,8 @@ class SimpleSAML_SessionHandlerPHP extends SimpleSAML_SessionHandler {
 	public function loadSession($sessionId = NULL) {
 		assert('is_string($sessionId) || is_null($sessionId)');
 
-		if ($sessionId !== NULL) {
-			if (session_id() === '') {
-				/* session not initiated with getCookieSessionId(), start session without setting cookie */
-				$ret = ini_set('session.use_cookies', '0');
-				if ($ret === FALSE) {
-					throw new SimpleSAML_Error_Exception('Disabling PHP option session.use_cookies failed.');
-				}
-
-				session_id($sessionId);
-				session_start();
-			} elseif ($sessionId !== session_id()) {
-				throw new SimpleSAML_Error_Exception('Cannot load PHP session with a specific ID.');
-			}
-		} elseif (session_id() === '') {
-			$sessionId = self::getCookieSessionId();
+		if ($sessionId !== NULL && $sessionId !== session_id()) {
+			throw new SimpleSAML_Error_Exception('Cannot load PHP session with a specific ID.');
 		}
 
 		if (!isset($_SESSION['SimpleSAMLphp_SESSION'])) {

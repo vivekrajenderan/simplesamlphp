@@ -49,18 +49,7 @@ class SAML2_XML_saml_SubjectConfirmationData {
 
 
 	/**
-	 * The various key information elements.
-	 *
-	 * Array with various elements describing this key.
-	 * Unknown elements will be represented by SAML2_XML_Chunk.
-	 *
-	 * @var array
-	 */
-	public $info = array();
-
-
-	/**
-	 * Initialize (and parse) a SubjectConfirmationData element.
+	 * Initialize (and parse? a SubjectConfirmationData element.
 	 *
 	 * @param DOMElement|NULL $xml  The XML element we should load.
 	 */
@@ -84,23 +73,6 @@ class SAML2_XML_saml_SubjectConfirmationData {
 		}
 		if ($xml->hasAttribute('Address')) {
 			$this->Address = $xml->getAttribute('Address');
-		}
-		for ($n = $xml->firstChild; $n !== NULL; $n = $n->nextSibling) {
-			if (!($n instanceof DOMElement)) {
-				continue;
-			}
-			if ($n->namespaceURI !== XMLSecurityDSig::XMLDSIGNS) {
-				$this->info[] = new SAML2_XML_Chunk($n);
-				continue;
-			}
-			switch ($n->localName) {
-			case 'KeyInfo':
-				$this->info[] = new SAML2_XML_ds_KeyInfo($n);
-				break;
-			default:
-				$this->info[] = new SAML2_XML_Chunk($n);
-				break;
-			}
 		}
 	}
 
@@ -135,9 +107,6 @@ class SAML2_XML_saml_SubjectConfirmationData {
 		}
 		if (isset($this->Address)) {
 			$e->setAttribute('Address', $this->Address);
-		}
-		foreach ($this->info as $n) {
-			$n->toXML($e);
 		}
 
 		return $e;

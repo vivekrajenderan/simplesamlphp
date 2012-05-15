@@ -33,7 +33,7 @@ class SimpleSAML_SessionHandlerStore extends SimpleSAML_SessionHandlerCookie {
 		assert('is_string($sessionId) || is_null($sessionId)');
 
 		if ($sessionId === NULL) {
-			$sessionId = $this->getCookieSessionId();
+			$sessionId = $this->session_id;
 		}
 
 		$session = $this->store->get('session', $sessionId);
@@ -47,7 +47,7 @@ class SimpleSAML_SessionHandlerStore extends SimpleSAML_SessionHandlerCookie {
 		}
 
 		/* For backwards compatibility, check the MemcacheStore object. */
-		$store = SimpleSAML_MemcacheStore::find($sessionId);
+		$store = SimpleSAML_MemcacheStore::find($this->session_id);
 		if ($store === NULL) {
 			return NULL;
 		}
