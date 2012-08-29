@@ -2,7 +2,6 @@ SimpleSAMLphp Documentation
 ===========================
 
  * [Installing simpleSAMLphp](simplesamlphp-install)
-    * [Upgrade notes for version 1.10](simplesamlphp-upgrade-notes-1.10)
     * [Upgrade notes for version 1.9](simplesamlphp-upgrade-notes-1.9)
     * [Upgrade notes for version 1.8](simplesamlphp-upgrade-notes-1.8)
     * [Upgrade notes for version 1.7](simplesamlphp-upgrade-notes-1.7)
@@ -36,7 +35,6 @@ SimpleSAMLphp Documentation
  * [Key rollover](./saml:keyrollover)
  * [Creating authentication sources](./simplesamlphp-authsource)
   * [Implementing custom username/password authentication](./simplesamlphp-customauth)
- * [Storing sessions in Riak](./riak:simplesamlphp-riak)
 
 Documentation on specific simpleSAMLphp modules:
  

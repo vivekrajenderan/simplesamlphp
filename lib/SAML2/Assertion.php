@@ -645,16 +645,15 @@ class SAML2_Assertion implements SAML2_SignedElement {
 	 * Decrypt the NameId of the subject in the assertion.
 	 *
 	 * @param XMLSecurityKey $key  The decryption key.
-	 * @param array $blacklist  Blacklisted decryption algorithms.
 	 */
-	public function decryptNameId(XMLSecurityKey $key, array $blacklist = array()) {
+	public function decryptNameId(XMLSecurityKey $key) {
 
 		if ($this->encryptedNameId === NULL) {
 			/* No NameID to decrypt. */
 			return;
 		}
 
-		$nameId = SAML2_Utils::decryptElement($this->encryptedNameId, $key, $blacklist);
+		$nameId = SAML2_Utils::decryptElement($this->encryptedNameId, $key);
 		SimpleSAML_Utilities::debugMessage($nameId, 'decrypt');
 		$this->nameId = SAML2_Utils::parseNameId($nameId);
 
@@ -662,14 +661,14 @@ class SAML2_Assertion implements SAML2_SignedElement {
 	}
 
 
-	public function decryptAttributes($key, array $blacklist = array()){
+	public function decryptAttributes($key){
 		if($this->encryptedAttribute === null){
 			return;
 		}
 		$attributes = $this->encryptedAttribute;
 		foreach ($attributes as $attributeEnc) {
 			/*Decrypt node <EncryptedAttribute>*/
-			$attribute = SAML2_Utils::decryptElement($attributeEnc->getElementsByTagName('EncryptedData')->item(0), $key, $blacklist);
+			$attribute = SAML2_Utils::decryptElement($attributeEnc->getElementsByTagName('EncryptedData')->item(0), $key);
 
 			if (!$attribute->hasAttribute('Name')) {
 				throw new Exception('Missing name on <saml:Attribute> element.');

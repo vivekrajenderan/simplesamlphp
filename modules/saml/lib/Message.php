@@ -288,26 +288,6 @@ class sspmod_saml_Message {
 
 
 	/**
-	 * Retrieve blacklisted algorithms.
-	 *
-	 * Remote configuration overrides local configuration.
-	 *
-	 * @param SimpleSAML_Configuration $srcMetadata  The metadata of the sender.
-	 * @param SimpleSAML_Configuration $dstMetadata  The metadata of the recipient.
-	 * @return array  Array of blacklisted algorithms.
-	 */
-	public static function getBlacklistedAlgorithms(SimpleSAML_Configuration $srcMetadata,
-		SimpleSAML_Configuration $dstMetadata) {
-
-		$blacklist = $srcMetadata->getArray('encryption.blacklisted-algorithms', NULL);
-		if ($blacklist === NULL) {
-			$blacklist = $dstMetadata->getArray('encryption.blacklisted-algorithms', array());
-		}
-		return $blacklist;
-	}
-
-
-	/**
 	 * Decrypt an assertion.
 	 *
 	 * This function takes in a SAML2_Assertion and decrypts it if it is encrypted.
@@ -342,12 +322,10 @@ class sspmod_saml_Message {
 			throw new SimpleSAML_Error_Exception('Error decrypting assertion: ' . $e->getMessage());
 		}
 
-		$blacklist = self::getBlacklistedAlgorithms($srcMetadata, $dstMetadata);
-
 		$lastException = NULL;
 		foreach ($keys as $i => $key) {
 			try {
-				$ret = $assertion->getAssertion($key, $blacklist);
+				$ret = $assertion->getAssertion($key);
 				SimpleSAML_Logger::debug('Decryption with key #' . $i . ' succeeded.');
 				return $ret;
 			} catch (Exception $e) {
@@ -717,12 +695,10 @@ class sspmod_saml_Message {
 				throw new SimpleSAML_Error_Exception('Error decrypting NameID: ' . $e->getMessage());
 			}
 
-			$blacklist = self::getBlacklistedAlgorithms($idpMetadata, $spMetadata);
-
 			$lastException = NULL;
 			foreach ($keys as $i => $key) {
 				try {
-					$assertion->decryptNameId($key, $blacklist);
+					$assertion->decryptNameId($key);
 					SimpleSAML_Logger::debug('Decryption with key #' . $i . ' succeeded.');
 					$lastException = NULL;
 					break;
@@ -762,7 +738,7 @@ class sspmod_saml_Message {
 				$pemKey = "-----BEGIN CERTIFICATE-----\n" .
 					chunk_split($key['X509Certificate'], 64) .
 					"-----END CERTIFICATE-----\n";
-				$key = new XMLSecurityKey(XMLSecurityKey::RSA_OAEP_MGF1P, array('type'=>'public'));
+				$key = new XMLSecurityKey(XMLSecurityKey::RSA_1_5, array('type'=>'public'));
 				$key->loadKey($pemKey);
 				return $key;
 			}

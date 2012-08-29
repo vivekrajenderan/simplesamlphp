@@ -81,12 +81,11 @@ class SAML2_EncryptedAssertion {
 	 * Retrieve the assertion.
 	 *
 	 * @param XMLSecurityKey $key  The key we should use to decrypt the assertion.
-	 * @param array $blacklist  Blacklisted decryption algorithms.
 	 * @return SAML2_Assertion  The decrypted assertion.
 	 */
-	public function getAssertion(XMLSecurityKey $inputKey, array $blacklist = array()) {
+	public function getAssertion(XMLSecurityKey $inputKey) {
 
-		$assertionXML = SAML2_Utils::decryptElement($this->encryptedData, $inputKey, $blacklist);
+		$assertionXML = SAML2_Utils::decryptElement($this->encryptedData, $inputKey);
 
 		SimpleSAML_Utilities::debugMessage($assertionXML, 'decrypt');
 
