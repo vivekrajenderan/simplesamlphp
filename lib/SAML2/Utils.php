@@ -133,18 +133,8 @@ class SAML2_Utils {
 		}
 		$algo = $sigMethod->getAttribute('Algorithm');
 
-		if ($key->type === XMLSecurityKey::RSA_SHA1) {
-			switch ($algo) {
-				case XMLSecurityKey::RSA_SHA256:
-					$key = self::castKey($key, XMLSecurityKey::RSA_SHA256);
-					break;
-				case XMLSecurityKey::RSA_SHA384:
-					$key = self::castKey($key, XMLSecurityKey::RSA_SHA384);
-					break;
-				case XMLSecurityKey::RSA_SHA512:
-					$key = self::castKey($key, XMLSecurityKey::RSA_SHA512);
-					break;
-			}
+		if ($key->type === XMLSecurityKey::RSA_SHA1 && $algo === XMLSecurityKey::RSA_SHA256) {
+			$key = self::castKey($key, XMLSecurityKey::RSA_SHA256);
 		}
 
 		/* Check the signature. */
@@ -324,23 +314,9 @@ class SAML2_Utils {
 		$objXMLSecDSig = new XMLSecurityDSig();
 		$objXMLSecDSig->setCanonicalMethod(XMLSecurityDSig::EXC_C14N);
 
-		switch ($key->type) {
-			case XMLSecurityKey::RSA_SHA256:
-				$type = XMLSecurityDSig::SHA256;
-				break;
-			case XMLSecurityKey::RSA_SHA384:
-				$type = XMLSecurityDSig::SHA384;
-				break;
-			case XMLSecurityKey::RSA_SHA512:
-				$type = XMLSecurityDSig::SHA512;
-				break;
-			default:
-				$type = XMLSecurityDSig::SHA1;
-		}
-
 		$objXMLSecDSig->addReferenceList(
 			array($root),
-			$type,
+			XMLSecurityDSig::SHA1,
 			array('http://www.w3.org/2000/09/xmldsig#enveloped-signature', XMLSecurityDSig::EXC_C14N),
 			array('id_name' => 'ID', 'overwrite' => FALSE)
 			);

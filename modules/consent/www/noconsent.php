@@ -19,17 +19,9 @@ $resumeFrom = SimpleSAML_Module::getModuleURL(
     array('StateId' => $id)
 );
 
-$logoutLink = SimpleSAML_Module::getModuleURL(
-    'consent/logout.php',
-    array('StateId' => $id)
-);
-
-
 $aboutService = null;
-if (!isset($state['consent:showNoConsentAboutService']) || $state['consent:showNoConsentAboutService']) {
-	if (isset($state['Destination']['url.about'])) {
-		$aboutService = $state['Destination']['url.about'];
-	}
+if (isset($state['Destination']['url.about'])) {
+    $aboutService = $state['Destination']['url.about'];
 }
 
 $statsInfo = array();
@@ -44,5 +36,4 @@ $t = new SimpleSAML_XHTML_Template($globalConfig, 'consent:noconsent.php');
 $t->data['dstMetadata'] = $state['Destination'];
 $t->data['resumeFrom'] = $resumeFrom;
 $t->data['aboutService'] = $aboutService;
-$t->data['logoutLink'] = $logoutLink;
 $t->show();
