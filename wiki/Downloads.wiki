@@ -1,0 +1,7 @@
+#summary Downloads have been moved
+
+= Downloads =
+
+The downloads have been moved to [http://simplesamlphp.org/download simplesamlphp.org]. Please go there if you want to download SimpleSAMLphp.
+
+You can still reach the old files in Google Code [https://code.google.com/p/simplesamlphp/downloads/list here].
