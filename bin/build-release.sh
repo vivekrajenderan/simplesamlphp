@@ -29,7 +29,8 @@ svn export "$REPOPATH"
 # Use composer only on newer versions that have a composer.json
 if [ -f "$TAG/composer.json" ]; then
     if [ ! -x composer.phar ]; then
-        curl -sS https://getcomposer.org/installer | php
+        echo "$0: Composerfile detected, but Composer not installed?" >&2
+        exit 1
     fi
 
     # Install dependencies (without vcs history or dev tools)
