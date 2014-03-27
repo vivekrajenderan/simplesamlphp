@@ -1,0 +1,7 @@
+#summary Source code has been moved
+
+= Source code =
+
+SimpleSAMLphp development has been moved to [https://github.com/simplesamlphp/simplesamlphp github]. Please go there if you want to checkout the latest sources or contribute with your own pull requests.
+
+Please refer to [https://simplesamlphp.org/docs/devel/simplesamlphp-install-repo the instructions] if you want more information about the new repository and how to use it.
